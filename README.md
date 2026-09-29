@@ -264,26 +264,6 @@ See [`docs/research/datasets.md`](docs/research/datasets.md) for full dataset do
 
 ---
 
-## Development Status
-
-| Component | Status |
-|---|---|
-| Repository structure | ✅ Initialised |
-| Architecture documentation | ✅ Draft |
-| Event schema | ✅ Draft |
-| Backend (FastAPI) | 🏗️ Foundation only |
-| Frontend (React) | 🏗️ Foundation only |
-| Cyber AI | ❌ Not started |
-| Video AI | ❌ Not started |
-| Document AI | ❌ Not started |
-| Correlation engine | ❌ Not started |
-| PostgreSQL models | ❌ Not started |
-| Evidence integrity | ❌ Not started |
-| Authentication | ❌ Not started |
-| CI/CD | ❌ Not started |
-
----
-
 ## Team Responsibilities
 
 | Member | Role | Ownership |
