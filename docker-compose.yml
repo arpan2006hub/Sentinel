@@ -1,0 +1,182 @@
+# =============================================================================
+# Sentinel — Docker Compose (Development Placeholder)
+# =============================================================================
+# This file documents the planned local development architecture.
+#
+# IMPORTANT: This is an INITIAL PLACEHOLDER.
+# Most services reference application images/commands that do not exist yet.
+# Services will be properly configured as implementation progresses.
+#
+# Planned service topology:
+#   frontend  — React investigator dashboard (Vite dev server)
+#   backend   — FastAPI application (evidence, case, analysis APIs)
+#   postgres  — PostgreSQL (structured metadata, events, audit records)
+#   redis     — Redis (background task queue / Celery broker)
+#   worker    — Celery worker (AI processing, analysis jobs)
+#   mlflow    — MLflow tracking server (ML experiment tracking)
+# =============================================================================
+
+version: "3.9"
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL
+  # The primary relational database.
+  # Stores: cases, evidence metadata, normalised events, entities,
+  #         relationships, anomalies, analysis runs, audit records.
+  # Evidence FILES are NOT stored in PostgreSQL — only metadata/hashes.
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16
+    container_name: sentinel-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-sentinel}
+      POSTGRES_USER: ${POSTGRES_USER:-sentinel_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sentinel_user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # Redis
+  # Used as the Celery message broker and result backend.
+  # Background AI processing jobs are queued through Redis.
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: sentinel-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # Backend (FastAPI)
+  # NOT YET IMPLEMENTED — placeholder configuration only.
+  # Will serve the Sentinel REST API once the application is built.
+  # ---------------------------------------------------------------------------
+  backend:
+    # image/build will be configured when the backend Dockerfile exists
+    build:
+      context: ./backend
+      dockerfile: Dockerfile        # to be created
+    container_name: sentinel-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    volumes:
+      - ./backend:/app
+      - ${STORAGE_PATH:-./local-evidence-store}:/evidence-store
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # command will be set once uvicorn / startup script is ready
+    profiles:
+      - app   # only start with: docker compose --profile app up
+
+  # ---------------------------------------------------------------------------
+  # Frontend (React + Vite)
+  # NOT YET IMPLEMENTED — placeholder configuration only.
+  # Will serve the investigator dashboard once the UI is built.
+  # ---------------------------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile        # to be created
+    container_name: sentinel-frontend
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "${FRONTEND_PORT:-5173}:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    profiles:
+      - app   # only start with: docker compose --profile app up
+
+  # ---------------------------------------------------------------------------
+  # Worker (Celery)
+  # NOT YET IMPLEMENTED — placeholder configuration only.
+  # Will execute background AI analysis jobs.
+  # ---------------------------------------------------------------------------
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile        # shares the backend image
+    container_name: sentinel-worker
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./backend:/app
+      - ${STORAGE_PATH:-./local-evidence-store}:/evidence-store
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # command: celery -A app.workers worker --loglevel=info
+    profiles:
+      - app
+
+  # ---------------------------------------------------------------------------
+  # MLflow Tracking Server
+  # For tracking AI/ML experiments during development.
+  # ---------------------------------------------------------------------------
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:latest
+    container_name: sentinel-mlflow
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./mlops/mlflow:/mlflow
+    command: mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri /mlflow
+    profiles:
+      - mlops   # start with: docker compose --profile mlops up
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  postgres-data:
+  redis-data:
+
+# =============================================================================
+# Usage
+# =============================================================================
+# Start infrastructure only (postgres + redis):
+#   docker compose up postgres redis
+#
+# Start all application services (once implemented):
+#   docker compose --profile app up
+#
+# Start MLflow:
+#   docker compose --profile mlops up mlflow
+#
+# Stop everything:
+#   docker compose down
+#
+# Destroy volumes (WARNING: deletes all database data):
+#   docker compose down -v

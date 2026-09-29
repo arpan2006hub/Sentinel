@@ -1,0 +1,162 @@
+# =============================================================================
+# Sentinel — .gitignore
+# =============================================================================
+# This file prevents secrets, private evidence, datasets, model weights,
+# and generated artefacts from being committed to the public repository.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Python
+# -----------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.venv/
+venv/
+env/
+ENV/
+.env/
+pip-log.txt
+pip-delete-this-directory.txt
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+.tox/
+.nox/
+*.log
+
+# -----------------------------------------------------------------------------
+# Node / JavaScript / TypeScript
+# -----------------------------------------------------------------------------
+node_modules/
+dist/
+build/
+.vite/
+*.local
+.eslintcache
+.parcel-cache/
+.turbo/
+*.tsbuildinfo
+
+# -----------------------------------------------------------------------------
+# Environment / Secrets
+# -----------------------------------------------------------------------------
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*.local
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+credentials/
+
+# -----------------------------------------------------------------------------
+# IDE / OS
+# -----------------------------------------------------------------------------
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+.DS_Store
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.swp
+*.swo
+*~
+
+# -----------------------------------------------------------------------------
+# Database / Runtime Files
+# -----------------------------------------------------------------------------
+*.db
+*.sqlite
+*.sqlite3
+postgres-data/
+redis-data/
+*.pid
+
+# -----------------------------------------------------------------------------
+# ML / AI Artefacts
+# -----------------------------------------------------------------------------
+# Experiment tracking (MLflow)
+mlruns/
+
+# Model weights — do NOT commit large model files
+*.pt
+*.pth
+*.bin
+*.onnx
+*.safetensors
+*.ckpt
+*.pkl
+*.joblib
+
+# Jupyter / notebooks scratch
+.ipynb_checkpoints/
+
+# -----------------------------------------------------------------------------
+# Investigation Data — NEVER COMMIT
+# (Private evidence must never be pushed to the public repository)
+# -----------------------------------------------------------------------------
+data/raw/
+data/private/
+data/processed/
+evidence/
+uploads/
+videos/
+cctv/
+documents/private/
+
+# Video evidence files
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.wmv
+*.flv
+*.webm
+*.m4v
+
+# Document evidence files
+*.pdf
+
+# Archive files that might contain evidence
+*.zip
+*.tar.gz
+*.tar.bz2
+*.7z
+*.rar
+
+# Image evidence (bulk; small UI assets are typically tracked)
+# Uncomment if evidence images should be excluded:
+# *.jpg
+# *.jpeg
+# *.png
+
+# -----------------------------------------------------------------------------
+# Logs (runtime, not source-controlled)
+# -----------------------------------------------------------------------------
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# -----------------------------------------------------------------------------
+# Docker / Compose
+# -----------------------------------------------------------------------------
+.docker/
+docker-compose.override.yml

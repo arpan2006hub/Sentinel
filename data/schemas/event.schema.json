@@ -1,0 +1,87 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://sentinel.local/schemas/event.schema.json",
+  "title": "Sentinel Canonical Event",
+  "type": "object",
+  "required": [
+    "event_id",
+    "case_id",
+    "timestamp_start",
+    "action",
+    "source_type",
+    "source_id",
+    "confidence",
+    "metadata"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "description": "Unique identifier for this event. Format: EVT-<number> or UUID.",
+      "pattern": "^(EVT-\\d+|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$"
+    },
+    "case_id": {
+      "type": "string",
+      "description": "The investigation case this event belongs to.",
+      "pattern": "^(CASE-\\d+|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$"
+    },
+    "timestamp_start": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the event began (UTC, ISO 8601)."
+    },
+    "timestamp_end": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "When the event ended (UTC, ISO 8601). Null for instantaneous events."
+    },
+    "actor_id": {
+      "type": ["string", "null"],
+      "description": "The entity that performed the action (employee ID, username, camera zone). Null if unknown."
+    },
+    "action": {
+      "type": "string",
+      "description": "The type of activity observed from the controlled vocabulary."
+    },
+    "object_id": {
+      "type": ["string", "null"],
+      "description": "The object acted upon (file ID, device ID, door ID). Null if not applicable."
+    },
+    "location_id": {
+      "type": ["string", "null"],
+      "description": "Physical or logical location (room, network segment, server). Null if unknown."
+    },
+    "source_type": {
+      "type": "string",
+      "description": "The modality/source that produced this event.",
+      "enum": [
+        "endpoint_log",
+        "auth_log",
+        "file_access_log",
+        "usb_log",
+        "network_log",
+        "dns_log",
+        "email_log",
+        "badge_log",
+        "cctv_video",
+        "pdf_document",
+        "text_document"
+      ]
+    },
+    "source_id": {
+      "type": "string",
+      "description": "The specific evidence record this event was extracted from (links to evidence table)."
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "description": "Confidence in the event extraction, from 0.0 (low) to 1.0 (high)."
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Modality-specific additional fields.",
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}
