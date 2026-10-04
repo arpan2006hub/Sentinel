@@ -93,6 +93,10 @@ redis-data/
 # -----------------------------------------------------------------------------
 # Experiment tracking (MLflow)
 mlruns/
+artifacts/
+data/generated/
+data/cert/
+data/video/
 
 # Model weights — do NOT commit large model files
 *.pt
