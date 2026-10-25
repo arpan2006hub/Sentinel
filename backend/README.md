@@ -35,7 +35,7 @@ The Sentinel backend is the central REST API and orchestration layer. It is resp
 ```
 backend/
 ├── app/
-│   ├── main.py                 # FastAPI app entry point (IMPLEMENTED)
+│   ├── main.py                 # FastAPI app entry point
 │   ├── api/                    # API routers (PLACEHOLDERS)
 │   │   ├── cases.py
 │   │   ├── evidence.py
