@@ -118,6 +118,8 @@ data/video/
 data/raw/
 data/private/
 data/processed/
+data/*.jsonl
+data/*.csv
 evidence/
 uploads/
 videos/

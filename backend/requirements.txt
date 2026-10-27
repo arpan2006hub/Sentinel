@@ -23,10 +23,14 @@ pydantic-settings==2.6.1
 # redis==5.1.0
 # celery==5.4.0
 
-# Security (planned)
+# Security & Form Handling
 # python-jose[cryptography]==3.3.0
 # passlib[bcrypt]==1.7.4
-# python-multipart==0.0.12
+python-multipart>=0.0.12
+
+# AI / Video Utilities
+pillow>=10.0
+huggingface-hub>=0.20.0
 
 # Utilities
 python-dotenv==1.0.1

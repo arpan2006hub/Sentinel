@@ -1,0 +1,16 @@
+{
+  "include": [
+    "ai",
+    "backend",
+    "tests",
+    "scripts"
+  ],
+  "extraPaths": [
+    "C:\\Users\\nirna\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\site-packages",
+    "C:\\Users\\nirna\\AppData\\Roaming\\Python\\Python312\\site-packages",
+    "c:\\Users\\nirna\\Downloads\\Sentinel",
+    "c:\\Users\\nirna\\Downloads\\Sentinel\\backend"
+  ],
+  "pythonPath": "C:\\Users\\nirna\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+  "reportMissingImports": "none"
+}

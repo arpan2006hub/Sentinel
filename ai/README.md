@@ -47,16 +47,17 @@ Physical AI   ─┘                            Timeline Construction
 
 ### Responsibilities
 
-- Frame extraction and preprocessing
-- Person/vehicle/object detection (YOLO-based)
-- Activity recognition and temporal event extraction
-- Anomaly detection in video streams (unusual movement, restricted zone entry)
-- Output: canonical events with `source_type: cctv_video`
+- Frame extraction and temporal preprocessing (FFmpeg / OpenCV)
+- Activity recognition and video crime detection via **TimeSformer** ([`Nikeytas/timesformer-best-crime-detector`](https://huggingface.co/Nikeytas/timesformer-best-crime-detector), 88.68% F1 score on UCF-Crime)
+- Temporal anomaly detection in video streams (unusual movement, violence, theft, restricted zone entry)
+- Output: canonical events with `source_type: cctv_video` and `action: crime_detected`
 
-### Planned Modules
+### Modules & Models
 
-| Subdirectory | Purpose |
+| File / Subdirectory | Purpose |
 |---|---|
+| `timesformer_crime_detector.py` | Time-Space Transformer inference engine for crime & anomaly detection |
+| `detect_crime.py` | CLI scanner for video files emitting Canonical Events |
 | `preprocessing/` | Video decoding, frame sampling, resolution normalisation |
 | `detection/` | Object/person detection, tracking, bounding-box extraction |
 | `anomaly/` | Temporal anomaly detection on detection outputs; event emission |

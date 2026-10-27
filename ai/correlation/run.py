@@ -20,9 +20,27 @@ def main() -> None:
     cyber = pd.read_csv("artifacts/cyber/cyber_predictions.csv")
     for _, row in cyber[cyber.prediction == 1].iterrows():
         events.append({"timestamp": row.timestamp, "source": "cyber", "entity": row.user_id, "score": float(row.anomaly_score), "kind": "cyber_anomaly"})
-    video = pd.read_csv("artifacts/video/video_predictions.csv")
-    for _, row in video[video.prediction == 1].iterrows():
-        events.append({"timestamp": row.timestamp, "source": "video", "entity": "unknown", "score": float(row.anomaly_score), "kind": "video_anomaly"})
+    # Ingest video anomaly and TimeSformer crime detection events
+    video_pred_path = Path("artifacts/video/video_predictions.csv")
+    if video_pred_path.exists():
+        video = pd.read_csv(video_pred_path)
+        for _, row in video[video.prediction == 1].iterrows():
+            events.append({"timestamp": row.timestamp, "source": "video", "entity": "unknown", "score": float(row.anomaly_score), "kind": "video_anomaly"})
+
+    timesformer_events_path = Path("artifacts/video/crime_events.jsonl")
+    if timesformer_events_path.exists():
+        for line in timesformer_events_path.read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                evt = json.loads(line)
+                events.append({
+                    "timestamp": evt.get("timestamp_start"),
+                    "source": "video",
+                    "entity": evt.get("actor_id", "unknown"),
+                    "score": float(evt.get("confidence", 0.88)),
+                    "kind": "video_crime",
+                    "event_id": evt.get("event_id"),
+                    "model": evt.get("metadata", {}).get("model", "TimeSformer"),
+                })
     for line in Path("artifacts/documents/document_predictions.jsonl").read_text(encoding="utf-8").splitlines():
         row = json.loads(line)
         if row["prediction"]:
