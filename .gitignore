@@ -121,6 +121,7 @@ data/processed/
 data/*.jsonl
 data/*.csv
 evidence/
+local-evidence-store/
 uploads/
 videos/
 cctv/

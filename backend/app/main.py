@@ -38,6 +38,11 @@ if str(PROJECT_ROOT) not in sys.path:
 from fastapi import FastAPI  # type: ignore[import-untyped,import-not-found]
 from fastapi.middleware.cors import CORSMiddleware  # type: ignore[import-untyped,import-not-found]
 from app.api.video import router as video_router
+from app.api.cases import router as cases_router
+from app.api.evidence import router as evidence_router
+from app.api.timeline import router as timeline_router
+from app.api.graph import router as graph_router
+from app.api.anomalies import router as anomalies_router
 
 # ---------------------------------------------------------------------------
 # Application instance
@@ -125,6 +130,16 @@ async def health() -> dict:
 # Registered API routers
 # ---------------------------------------------------------------------------
 app.include_router(video_router, prefix="/api")
+app.include_router(cases_router, prefix="/api")
+app.include_router(cases_router, prefix="")
+app.include_router(evidence_router, prefix="/api")
+app.include_router(evidence_router, prefix="")
+app.include_router(timeline_router, prefix="/api")
+app.include_router(timeline_router, prefix="")
+app.include_router(graph_router, prefix="/api")
+app.include_router(graph_router, prefix="")
+app.include_router(anomalies_router, prefix="/api")
+app.include_router(anomalies_router, prefix="")
 
 # ---------------------------------------------------------------------------
 # Future routers (to be registered as implementation progresses)

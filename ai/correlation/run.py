@@ -1,73 +1,55 @@
-"""Correlate anomaly outputs into a compact investigation timeline."""
+"""Correlate multimodal anomaly outputs into unified investigation timelines, graphs, and incidents."""
 
 from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
-import pandas as pd
+# Ensure project root is in sys.path
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from ai.correlation.correlator import MultimodalCorrelator
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--data-dir", default="data/generated")
-    parser.add_argument("--output", default="artifacts/correlation/events.jsonl")
-    parser.add_argument("--window-minutes", type=int, default=60)
+    parser = argparse.ArgumentParser(description="Sentinel Multimodal Evidence Correlation Engine")
+    parser.add_argument("--data-dir", default="data/generated", help="Directory of generated/raw input data")
+    parser.add_argument("--artifacts-dir", default="artifacts", help="Base artifacts directory")
+    parser.add_argument("--output", default="artifacts/correlation/events.jsonl", help="Target output file for correlated clusters")
+    parser.add_argument("--window-minutes", type=int, default=60, help="Sliding temporal correlation window in minutes")
     args = parser.parse_args()
-    root = Path(args.data_dir)
-    events = []
-    cyber = pd.read_csv("artifacts/cyber/cyber_predictions.csv")
-    for _, row in cyber[cyber.prediction == 1].iterrows():
-        events.append({"timestamp": row.timestamp, "source": "cyber", "entity": row.user_id, "score": float(row.anomaly_score), "kind": "cyber_anomaly"})
-    # Ingest video anomaly and TimeSformer crime detection events
-    video_pred_path = Path("artifacts/video/video_predictions.csv")
-    if video_pred_path.exists():
-        video = pd.read_csv(video_pred_path)
-        for _, row in video[video.prediction == 1].iterrows():
-            events.append({"timestamp": row.timestamp, "source": "video", "entity": "unknown", "score": float(row.anomaly_score), "kind": "video_anomaly"})
 
-    timesformer_events_path = Path("artifacts/video/crime_events.jsonl")
-    if timesformer_events_path.exists():
-        for line in timesformer_events_path.read_text(encoding="utf-8").splitlines():
-            if line.strip():
-                evt = json.loads(line)
-                events.append({
-                    "timestamp": evt.get("timestamp_start"),
-                    "source": "video",
-                    "entity": evt.get("actor_id", "unknown"),
-                    "score": float(evt.get("confidence", 0.88)),
-                    "kind": "video_crime",
-                    "event_id": evt.get("event_id"),
-                    "model": evt.get("metadata", {}).get("model", "TimeSformer"),
-                })
-    for line in Path("artifacts/documents/document_predictions.jsonl").read_text(encoding="utf-8").splitlines():
-        row = json.loads(line)
-        if row["prediction"]:
-            for entity in row["entities"]["users"] or ["unknown"]:
-                events.append({"timestamp": "2025-01-01T00:00:00+00:00", "source": "document", "entity": entity, "score": row["suspicious_score"], "kind": "document_claim", "document_id": row["document_id"]})
-    frame = pd.DataFrame(events)
-    if frame.empty:
-        raise RuntimeError("No anomaly events were produced.")
-    # pandas 3.x requires mixed-format parsing when sources use different
-    # ISO timestamp spellings (for example, space vs. T separators).
-    frame["timestamp"] = pd.to_datetime(frame["timestamp"], utc=True, format="mixed")
-    frame = frame.sort_values("timestamp")
-    groups = []
-    for _, row in frame.iterrows():
-        matching = [g for g in groups if row["entity"] != "unknown" and row["entity"] in g["entities"] and abs((row["timestamp"] - g["last_timestamp"]).total_seconds()) <= args.window_minutes * 60]
-        if matching:
-            group = matching[0]
-            group["events"].append(row.to_dict())
-            group["last_timestamp"] = row["timestamp"]
-            group["sources"].add(row["source"])
-        else:
-            groups.append({"entities": {row["entity"]}, "sources": {row["source"]}, "last_timestamp": row["timestamp"], "events": [row.to_dict()]})
-    result = [{"entities": sorted(g["entities"]), "sources": sorted(g["sources"]), "event_count": len(g["events"]), "events": [{**e, "timestamp": e["timestamp"].isoformat()} for e in g["events"]]} for g in groups]
-    output = Path(args.output)
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(result, indent=2, default=str), encoding="utf-8")
-    print(json.dumps({"clusters": len(result), "events": len(events), "output": str(output)}, indent=2))
+    artifacts_path = Path(args.artifacts_dir)
+    output_path = Path(args.output)
+    output_dir = output_path.parent
+
+    correlator = MultimodalCorrelator(window_minutes=args.window_minutes)
+
+    events = correlator.load_events_from_artifacts(
+        cyber_csv=artifacts_path / "cyber" / "cyber_predictions.csv",
+        video_csv=artifacts_path / "video" / "video_predictions.csv",
+        crime_jsonl=artifacts_path / "video" / "crime_events.jsonl",
+        document_jsonl=artifacts_path / "documents" / "document_predictions.jsonl",
+    )
+
+    if not events:
+        print("[!] No anomaly predictions found under artifacts/. Run starter training first.", file=sys.stderr)
+        sys.exit(1)
+
+    result = correlator.run_correlation(events=events, output_dir=output_dir)
+
+    print(json.dumps({
+        "clusters": result["summary"]["incident_clusters"],
+        "events": result["summary"]["total_events"],
+        "contradictions": result["summary"]["contradictions_detected"],
+        "graph_nodes": result["summary"]["graph_nodes"],
+        "graph_edges": result["summary"]["graph_edges"],
+        "output": str(output_path),
+    }, indent=2))
 
 
 if __name__ == "__main__":

@@ -8,195 +8,251 @@
 
 Sentinel is a **self-hosted, local-first investigation platform** designed to assist human investigators in analysing complex insider-threat scenarios involving multiple heterogeneous evidence sources.
 
-The system is currently in its **initial foundation stage**. This repository contains the architectural blueprint, directory structure, development conventions, and documentation scaffolding for future implementation.
+Instead of siloing evidence into separate tools, Sentinel ingests data across multiple modalities (cyber logs, surveillance video, physical badge events, and narrative documents), normalises observations into a canonical schema, and uses cross-modal AI models to surface suspicious activity patterns, timeline anomalies, and investigative leads.
+
+> **Investigative Signals — Not Automated Verdicts**: Sentinel is an investigative aid. All AI outputs represent prioritized leads, anomaly scores, and correlated timelines to guide human analysts. Human investigators remain responsible for all conclusions and decisions.
 
 ---
 
-## Problem
+## Implementation Status & Roadmap
 
-Insider-threat investigations are fundamentally cross-domain. An investigator examining a suspected insider-threat incident may need to simultaneously review:
-
-- Authentication and system-access logs
-- File-access records
-- USB and peripheral-device events
-- Network, DNS, and HTTP activity
-- Physical badge and door-access records
-- CCTV or video footage from relevant areas
-- Scanned documents, incident reports, and employee statements
-
-These evidence sources live in different formats, different systems, and different timelines. A human investigator working through them manually faces an enormous correlation burden. Evidence relationships that span multiple sources may not surface without systematic cross-referencing.
-
-Sentinel is designed to reduce this burden by automatically normalising, correlating, and structuring evidence — and by surfacing investigative leads that a human investigator can then evaluate and act upon.
-
----
-
-## Core Idea
-
-Sentinel ingests evidence from multiple modalities, normalises all observations into a canonical event format, and then applies cross-source correlation to surface suspicious activity patterns, timeline anomalies, and evidence relationships.
-
-All AI outputs are **investigative signals** — not verdicts.
-
-Human investigators remain responsible for all investigative decisions.
+| Capability / Component | Status | Details |
+|---|---|---|
+| **Video AI (TimeSformer)** | 🟢 **Implemented** | Space-Time Transformer (`Nikeytas/timesformer-best-crime-detector`) fine-tuned on UCF-Crime (88.68% F1 score), frame extraction, temporal sliding window, CLI & REST endpoints |
+| **Cyber AI (Log Anomaly Detection)** | 🟢 **Implemented** | CERT Insider Threat Dataset r4.2 pipeline; Isolation Forest baseline & supervised Random Forest with 97.65% ROC-AUC (see [`CYBER_MODEL_REPORT.md`](CYBER_MODEL_REPORT.md)) |
+| **Document AI Baseline** | 🟢 **Implemented** | Narrative text parser, entity and keyword extraction, claim scoring ([`ai/documents/train.py`](ai/documents/train.py)) |
+| **Cross-Modal Correlation Engine** | 🟢 **Implemented** | Entity resolution, temporal window clustering, automated contradiction detection (impossible travel, uncredentialed presence), and Cytoscape-compatible evidence graph generation ([`ai/correlation/`](ai/correlation/)) |
+| **Case & Evidence Management API** | 🟢 **Implemented** | Local-first REST API and service layer for case CRUD, evidence ingestion, SHA-256 cryptographic verification, tamper detection, and chain-of-custody audit logging ([`backend/app/api/`](backend/app/api/)) |
+| **End-to-End Demo Pipeline** | 🟢 **Implemented** | One-command generation of multimodal synthetic data, training, and correlation ([`scripts/run_all.py`](scripts/run_all.py)) |
+| **FastAPI Backend Core & Endpoints** | 🟢 **Implemented** | REST API with health check, interactive OpenAPI docs (`/docs`), `/api/video/*`, `/cases`, and `/evidence` routes |
+| **Test Suite** | 🟢 **Implemented** | 15+ automated pytest tests covering TimeSformer video inference, Case & Evidence API lifecycle, cryptographic tamper detection, entity resolution, and timeline correlation |
+| **Investigator Dashboard (Frontend)** | 🟡 **In Progress** | React 18 + TypeScript + Vite project scaffolding with component architecture (see [`frontend/README.md`](frontend/README.md)) |
+| **PostgreSQL & Redis Orchestration** | 📋 **Planned** | Docker Compose service topology ready for Celery background tasks and database persistence |
 
 ---
 
-## Key Capabilities *(planned)*
+## Quickstart
 
-| Capability | Description |
-|---|---|
-| **Multimodal ingestion** | Accept CCTV video, auth logs, file-access logs, USB events, network logs, physical badge data, PDFs, and documents |
-| **Event normalisation** | Map all evidence sources to a canonical event schema |
-| **Anomaly detection** | Identify unusual activity patterns per evidence source |
-| **Cross-source correlation** | Connect related events across different evidence types |
-| **Timeline construction** | Build a unified, sortable incident timeline |
-| **Evidence graph** | Represent entity relationships and evidence connections |
-| **Contradiction detection** | Surface inconsistencies across evidence sources |
-| **Audit trail** | Maintain a cryptographic integrity record of all evidence |
-| **Investigator dashboard** | Present evidence-backed leads to a human investigator |
+### Prerequisites
 
-> **Status**: None of these capabilities are implemented yet. This repository is currently a project foundation.
+- **Python**: 3.11 or higher
+- **Node.js**: 18+ (for frontend dashboard development)
+- **Docker & Docker Compose**: (Optional, for running PostgreSQL, Redis, and MLflow)
+- **Hardware**:
+  - **CPU**: Sufficient for all tabular cyber models, document AI, correlation pipelines, and TimeSformer fallback inference.
+  - **GPU / CUDA**: Recommended for high-speed video inference with TimeSformer.
+
+### 1. Installation
+
+Clone the repository and set up a Python virtual environment:
+
+```bash
+git clone https://github.com/your-org/sentinel.git
+cd sentinel
+
+# Create and activate virtual environment
+python3 -m venv .venv
+source .venv/bin/activate       # On Windows: .venv\Scripts\activate
+
+# Install AI & ML dependencies
+pip install -r requirements-ml.txt
+
+# Install backend dependencies
+pip install -r backend/requirements.txt
+```
+
+### 2. Run the Complete End-to-End Demo
+
+Run the automated pipeline to generate synthetic multimodal data, train the baseline models, and perform cross-modal correlation:
+
+```bash
+python scripts/run_all.py
+```
+
+This single command will:
+1. Generate synthetic cyber logs, video features, and document records under `data/generated/`.
+2. Train the Cyber AI anomaly detector (`ai/cyber/train.py`).
+3. Train the Video AI baseline model (`ai/video/train.py`).
+4. Train the Document AI entity extractor (`ai/documents/train.py`).
+5. Execute the Correlation Engine (`ai/correlation/run.py`), outputting correlated incident clusters to `artifacts/correlation/events.jsonl`.
+
+### 3. Run the Video Crime Detector (TimeSformer)
+
+Analyze surveillance footage using the integrated Time-Space Transformer:
+
+```bash
+# Analyze sample CCTV footage
+python ai/video/detect_crime.py \
+    --video data/sample/real_burglary.mp4 \
+    --case-id CASE-2026-001 \
+    --threshold 0.5 \
+    --output artifacts/video/crime_analysis.json \
+    --events-output artifacts/video/crime_events.jsonl
+```
+
+### 4. Launch the FastAPI Backend Server
+
+```bash
+cd backend
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+Once running, access the interactive API documentation:
+- **Swagger UI**: [http://localhost:8000/docs](http://localhost:8000/docs)
+- **ReDoc**: [http://localhost:8000/redoc](http://localhost:8000/redoc)
+- **Health Check**: [http://localhost:8000/health](http://localhost:8000/health)
+
+### 5. Run the Test Suite
+
+```bash
+pytest tests/ -v
+```
 
 ---
 
-## Local-First Architecture
+## System Architecture
 
-Sentinel is designed as a **self-hosted, local-first application**.
+Sentinel follows a strict **self-hosted, local-first** design. No investigation data or evidence leaves your infrastructure.
 
 ```
-GitHub Repository
+React Frontend (Investigator Dashboard)
        │
-       │  clone
+       │  REST / HTTP (JSON)
        ▼
-Organisation / User System
+FastAPI Backend (app/main.py)
        │
-       ├── Sentinel Frontend    (React)
-       ├── Sentinel Backend     (FastAPI)
-       ├── PostgreSQL           (structured metadata & events)
-       ├── Local Evidence Store (files, video, documents)
-       ├── AI Processing        (cyber / video / document AI)
-       └── Audit / Integrity    (SHA-256 hashes & audit records)
-```
-
-**There is no mandatory centralised Sentinel server.**
-**There is no mandatory cloud database.**
-**There is no hidden telemetry.**
-
-Each organisation clones the repository and operates its own independent instance. Investigation data remains under the organisation's control at all times.
-
----
-
-## Evidence Sources *(planned)*
-
-- **Cyber logs** — authentication, file-access, USB/device, network, DNS, HTTP, process events
-- **Video / CCTV** — recorded surveillance footage from relevant physical areas
-- **Physical access** — badge reader and door-access events
-- **Documents** — PDFs, scanned reports, incident summaries, employee statements
-
----
-
-## Evidence Integrity
-
-Sentinel plans to implement a cryptographic evidence-integrity mechanism inspired by chain-of-custody principles:
-
-```
-Evidence File
-     │
-     ├── Evidence ID          (unique identifier)
-     ├── SHA-256 Hash         (integrity fingerprint at ingest)
-     ├── Ingest Timestamp
-     ├── Source Metadata
-     └── Audit History
-             │
-             ▼
-       Investigation Record
-```
-
-- Evidence files are hashed with SHA-256 at ingest time.
-- Any unexpected modification to an evidence file can be detected by re-hashing and comparing.
-- All processing operations should eventually produce an audit record.
-
-> This mechanism is planned and not yet implemented.
-
----
-
-## Planned System Architecture
-
-```
-React Frontend  (Investigator Dashboard)
-       │
-       │  REST / HTTP
-       ▼
-FastAPI Backend
-       │
-       ├── Case Management
-       ├── Evidence Ingestion
+       ├── Case & Evidence Management
+       ├── Video Crime Detection API (/api/video/*)
        ├── Analysis Orchestration
-       └── Audit / Integrity
+       └── Cryptographic Audit Trail (SHA-256)
                │
        ┌───────┴────────┐
        ▼                ▼
- PostgreSQL       Local / Object
- (metadata,       Evidence Storage
-  events,         (files, video,
-  audit)          documents)
+ PostgreSQL        Local Evidence Store
+ (metadata,         (raw videos, logs,
+  events, audit)     scanned PDFs)
        │
        ▼
-AI Processing Layer
-       ├── Cyber AI          (log analysis, anomaly detection)
-       ├── Video AI          (object detection, activity recognition)
-       └── Document AI       (OCR, entity extraction, contradiction)
+Multimodal AI Layer
+       ├── Cyber AI       (CERT r4.2 Random Forest & Isolation Forest)
+       ├── Video AI       (TimeSformer Space-Time Transformer)
+       └── Document AI    (Entity parsing & claim extraction)
                │
                ▼
-       Event Normalisation
-       (Canonical Event Schema)
+Canonical Event Normalisation (JSON-Schema)
                │
                ▼
-       Correlation Engine
-       ├── Anomaly Detection
-       ├── Timeline Construction
-       └── Evidence Graph
+Cross-Modal Correlation Engine (ai/correlation/run.py)
+       ├── Entity Resolution (usernames, badge IDs, actors)
+       ├── Temporal Clustering (sliding incident windows)
+       └── Incident Timeline Construction
                │
                ▼
-       Investigator Dashboard
-       (Evidence-backed leads for human review)
+Human Investigator Dashboard (Review, Triaging, Reporting)
 ```
 
 ---
 
-## Technology Stack *(planned)*
+## Core Capabilities & AI Modules
 
-### Frontend
-- React + TypeScript
-- Vite
-- Tailwind CSS
-- React Query
-- React Flow / Cytoscape.js (evidence graph)
-- Recharts (timeline, analytics)
-- Axios
+### 1. Video AI (`ai/video/`)
+- **Model**: [`Nikeytas/timesformer-best-crime-detector`](https://huggingface.co/Nikeytas/timesformer-best-crime-detector) (Time-Space Transformer).
+- **Benchmark**: Fine-tuned on the UCF-Crime dataset (~1,900 surveillance videos) achieving **88.68% F1 score** and **84.25% accuracy**.
+- **Detection Scope**: Physical anomalies and crimes including burglary, fighting, assault, theft, arson, vandalism, explosion, and unauthorized presence.
+- **Inference**: Uses a temporal sliding window (default: 2.0s duration, 1.0s stride) sampling 16 frames uniformly at 224×224 resolution.
+- **Reference**: Detailed usage in [`ai/video/README.md`](ai/video/README.md).
 
-### Backend
-- Python + FastAPI
-- Pydantic
-- SQLAlchemy + Alembic
-- PostgreSQL
-- Redis + Celery (background workers)
+### 2. Cyber AI (`ai/cyber/`)
+- **Dataset**: CERT Insider Threat Test Dataset r4.2 (~32 million raw records preprocessed into 330,452 user-day observations).
+- **Models**:
+  - **Isolation Forest**: Unsupervised baseline for rare behavioural patterns.
+  - **Random Forest**: Supervised classifier achieving **97.65% ROC-AUC**, **43.16% F1 score**, and **47.19% Average Precision** on a chronological 80/20 test split.
+- **Features**: Daily counts of logon/logoff events, file access records, removable USB connections, web browsing activities, and email volumes.
+- **Reference**: Full training and benchmark report in [`CYBER_MODEL_REPORT.md`](CYBER_MODEL_REPORT.md).
 
-### AI / ML
-- PyTorch
-- scikit-learn
-- OpenCV
-- Hugging Face Transformers
-- Sentence Transformers
-- spaCy
-- pandas / NumPy
-- YOLO (computer-vision detection)
+### 3. Document AI (`ai/documents/`)
+- Ingests text documents, incident summaries, and employee statements.
+- Extracts named entities, accounts, and suspicious claims.
+- Maps narrative claims to canonical timestamps for contradiction detection against cyber and video logs.
 
-### MLOps
-- MLflow (experiment tracking)
+### 4. Correlation Engine (`ai/correlation/`)
+- Ingests canonical events emitted across all modalities.
+- Applies entity resolution and sliding temporal window clustering (e.g., matching a physical badge swipe, CCTV corridor detection, and privileged file export occurring within a 60-minute window).
+- Outputs structured incident narratives to `artifacts/correlation/events.jsonl`.
 
-### Infrastructure
-- Docker + Docker Compose
-- GitHub Actions (CI)
+---
+
+## REST API Overview
+
+The FastAPI backend exposes endpoints for evidence processing, case management, model status, and cryptographic verification:
+
+| Method | Endpoint | Description | Status |
+|---|---|---|---|
+| `GET` | `/` | Service identifier and status | 🟢 Active |
+| `GET` | `/health` | Health probe (database, redis, storage check) | 🟢 Active |
+| `GET` | `/cases` | List investigation cases with pagination and status filters | 🟢 Active |
+| `POST` | `/cases` | Create a new investigation case | 🟢 Active |
+| `GET` | `/cases/{id}` | Get case details, evidence count, and metadata | 🟢 Active |
+| `PATCH` | `/cases/{id}` | Update case status, description, or title | 🟢 Active |
+| `DELETE` | `/cases/{id}` | Delete case and associated evidence records | 🟢 Active |
+| `POST` | `/evidence` | Ingest evidence file, compute SHA-256 hash, and log audit entry | 🟢 Active |
+| `GET` | `/evidence` | List all evidence items, optionally filtered by `case_id` | 🟢 Active |
+| `GET` | `/evidence/{id}` | Retrieve evidence metadata and original hash | 🟢 Active |
+| `GET` | `/evidence/{id}/verify` | Cryptographically re-verify SHA-256 hash against stored fingerprint | 🟢 Active |
+| `GET` | `/evidence/{id}/audit` | Retrieve complete chain-of-custody audit log | 🟢 Active |
+| `DELETE` | `/evidence/{id}` | Delete evidence file and record deletion in audit log | 🟢 Active |
+| `GET` | `/api/video/model-info` | Returns TimeSformer architecture, device (CPU/CUDA), and benchmark metrics | 🟢 Active |
+| `POST` | `/api/video/analyze` | Analyzes a video path on local disk | 🟢 Active |
+| `POST` | `/api/video/analyze-upload` | Multipart upload and analysis of surveillance video | 🟢 Active |
+| `POST` | `/api/video/download-weights` | Triggers background download of TimeSformer Hugging Face weights | 🟢 Active |
+| `GET` | `/timeline/{case_id}` | Retrieve correlated multimodal incident timeline | 🟡 In Progress |
+
+See [`docs/architecture/api-contract.md`](docs/architecture/api-contract.md) for the complete API specifications.
+
+---
+
+## Configuration
+
+Configuration is managed via environment variables. Copy the provided template to create your `.env` file:
+
+```bash
+cp .env.example .env
+```
+
+Key environment variables:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `BACKEND_PORT` | `8000` | Port for the FastAPI backend server |
+| `FRONTEND_PORT` | `5173` | Port for the Vite frontend development server |
+| `DATABASE_URL` | `postgresql://...` | Connection string for PostgreSQL metadata storage |
+| `REDIS_HOST` | `localhost` | Redis host for Celery background tasks |
+| `STORAGE_PATH` | `./local-evidence-store` | Local directory for storing raw evidence files |
+| `MAX_UPLOAD_SIZE_MB` | `500` | Maximum upload size for video and document files |
+| `MLFLOW_TRACKING_URI` | `http://localhost:5000` | MLflow experiment tracking server |
+
+---
+
+## Docker & Developer Tools
+
+A [`docker-compose.yml`](docker-compose.yml) and [`Makefile`](Makefile) are provided for managing development services:
+
+```bash
+# Initial project setup (copies .env and verifies dependencies)
+make setup
+
+# Start PostgreSQL and Redis infrastructure containers
+make up
+
+# Start FastAPI backend in development mode
+make backend-dev
+
+# View service logs
+make logs
+
+# Stop all services
+make down
+```
 
 ---
 
@@ -204,105 +260,99 @@ AI Processing Layer
 
 ```
 sentinel/
-├── README.md
-├── LICENSE
-├── .gitignore
-├── .env.example
-├── docker-compose.yml
-├── Makefile
+├── README.md                           # Project overview, quickstart, and documentation hub
+├── TRAINING.md                         # Detailed guide for model training and synthetic data
+├── CYBER_MODEL_REPORT.md               # CERT r4.2 evaluation results, methodology, and viva Q&A
+├── LICENSE                             # MIT License
+├── Makefile                            # Developer convenience targets
+├── docker-compose.yml                  # Docker Compose services (Postgres, Redis, MLflow)
+├── requirements-ml.txt                 # AI/ML dependencies (PyTorch, Transformers, scikit-learn)
+├── .env.example                        # Environment variable configuration template
 │
-├── docs/
-│   ├── architecture/       System design, schema, API contract
-│   ├── research/           Datasets, methodology, evaluation
-│   └── decisions/          Architecture Decision Records (ADRs)
+├── ai/                                 # AI & Machine Learning pipelines
+│   ├── cyber/                          # CERT dataset preprocessing, labeling, and training
+│   ├── video/                          # TimeSformer crime detector, feature extraction, and CLI
+│   ├── documents/                      # Document text parsing, entity extraction, and claim scoring
+│   └── correlation/                    # Cross-modal correlation and incident timeline clustering
 │
-├── frontend/               React + TypeScript investigator dashboard
-├── backend/                FastAPI backend + evidence/case APIs
-├── ai/                     Cyber / Video / Document AI + Correlation
-├── data/                   Schemas, sample data, dataset docs
-├── mlops/                  MLflow, model registry, experiments
-├── scripts/                Developer utilities
-├── tests/                  Integration tests + fixtures
-└── .github/                Workflows, issue templates, PR template
+├── backend/                            # FastAPI REST API & orchestration service
+│   ├── app/
+│   │   ├── main.py                     # Application entry point and router registration
+│   │   ├── api/                        # API route handlers (video, cases, evidence, etc.)
+│   │   ├── schemas/                    # Pydantic request/response schemas
+│   │   └── services/                   # Business logic and model service wrappers
+│   └── requirements.txt                # Backend web dependencies
+│
+├── frontend/                           # React + TypeScript investigator dashboard
+│   ├── src/                            # Components, pages, hooks, services
+│   └── package.json                    # Frontend npm dependencies and scripts
+│
+├── data/                               # Data schemas, synthetic outputs, and sample files
+│   ├── schemas/event.schema.json       # Canonical Event JSON Schema
+│   └── sample/                         # Sample video clips for local verification
+│
+├── artifacts/                          # Saved model weights, metrics, and correlation outputs
+│   ├── models/timesformer/             # Downloaded TimeSformer model weights
+│   ├── cyber/                          # Cyber model artifacts and evaluation metrics
+│   └── correlation/                    # Correlated event timelines (events.jsonl)
+│
+├── docs/                               # Architectural and research documentation
+│   ├── architecture/                   # System design, API contract, database schema, event schema
+│   ├── research/                       # Research methodology, datasets, and evaluation metrics
+│   └── decisions/                      # Architecture Decision Records (ADRs)
+│
+├── scripts/                            # Utility and orchestration scripts
+│   ├── run_all.py                      # One-command demo pipeline runner
+│   ├── generate_demo_data.py           # Synthetic multimodal data generator
+│   └── threshold_report.py             # Classification threshold analysis
+│
+└── tests/                              # Automated test suites
+    └── test_timesformer_detector.py    # TimeSformer unit tests and FastAPI integration tests
 ```
 
 ---
 
-## Research Direction
+## Documentation Hub
 
-Sentinel is being developed as a research-oriented student project exploring:
-
-> **Can multimodal evidence correlation improve the detection and explanation of insider-threat activity compared with analysing individual evidence sources independently?**
-
-Planned ablation study:
-
-| Model | Evidence Sources |
-|---|---|
-| A | Cyber logs only |
-| B | Cyber + temporal correlation |
-| C | Cyber + physical evidence |
-| D | Cyber + physical + document evidence |
-
-See [`docs/research/methodology.md`](docs/research/methodology.md) for full research design.
-
----
-
-## Dataset Strategy
-
-Sentinel plans to use publicly available research datasets as the basis for development and evaluation:
-
-- **CERT Insider Threat Test Dataset** — cyber log baseline
-- **LANL Cybersecurity Dataset** — network authentication events
-- **VAST 2009 Grand Challenge** — multimodal investigation scenario
-- **UCF-Crime** — video anomaly detection
-- **DocVQA** — document understanding
-- **MITRE ATT&CK STIX** — threat-intelligence knowledge graph
-
-> ⚠️ No real investigation data, real CCTV footage, or private employee information should ever be committed to this repository.
-
-See [`docs/research/datasets.md`](docs/research/datasets.md) for full dataset documentation.
-
----
-
-## Team Responsibilities
-
-| Member | Role | Ownership |
-|---|---|---|
-| **Member 1 — AI/ML** | Cyber AI, Video AI, Document AI, Correlation, Evaluation | `/ai/` |
-| **Member 2 — Full Stack / Frontend** | Dashboard, Case UI, Timeline, Evidence Graph | `/frontend/` |
-| **Member 3 — UI/UX + DevOps** | UX, Design System, Docker, CI/CD, Infrastructure | `/.github/`, Docker |
-| **Member 4 — Backend + Security** | FastAPI, PostgreSQL, APIs, Audit/Integrity Architecture | `/backend/` |
+- **Training & Running Baselines**: [`TRAINING.md`](TRAINING.md)
+- **Cyber Model Evaluation & Defense Q&A**: [`CYBER_MODEL_REPORT.md`](CYBER_MODEL_REPORT.md)
+- **Video AI Documentation**: [`ai/video/README.md`](ai/video/README.md)
+- **Backend Architecture**: [`backend/README.md`](backend/README.md)
+- **Frontend Architecture**: [`frontend/README.md`](frontend/README.md)
+- **System Design Blueprint**: [`docs/architecture/system-design.md`](docs/architecture/system-design.md)
+- **API Contract**: [`docs/architecture/api-contract.md`](docs/architecture/api-contract.md)
+- **Database Schema**: [`docs/architecture/database-schema.md`](docs/architecture/database-schema.md)
+- **Canonical Event Schema**: [`docs/architecture/event-schema.md`](docs/architecture/event-schema.md)
+- **Research Methodology**: [`docs/research/methodology.md`](docs/research/methodology.md)
+- **Dataset Strategy**: [`docs/research/datasets.md`](docs/research/datasets.md)
+- **Local-First Architecture Decision (ADR-002)**: [`docs/decisions/ADR-002-local-first.md`](docs/decisions/ADR-002-local-first.md)
 
 ---
 
 ## Privacy and Data Handling
 
-- All investigation evidence remains on the self-hosted instance.
-- No investigation data is transmitted to any Sentinel-operated service.
-- No telemetry is collected.
-- Evidence files are never uploaded to the public repository.
-- Secrets and credentials must never be committed to Git.
-
-See [`docs/decisions/ADR-002-local-first.md`](docs/decisions/ADR-002-local-first.md) for the full rationale.
+- **Zero Cloud Leakage**: All evidence files, model inferences, and audit records remain within your self-hosted infrastructure.
+- **No Telemetry**: Sentinel includes no telemetry, analytics beacons, or remote tracking.
+- **Integrity Verification**: Evidence files are hashed with SHA-256 upon ingestion to establish a verifiable chain of custody.
+- **Confidentiality**: Real investigation evidence, CCTV footage, and private employee records must never be committed to public repositories.
 
 ---
 
 ## Disclaimer
 
-Sentinel is designed to **assist human investigation** — not to replace human judgment.
+Sentinel is an **investigative decision-support system** designed to assist qualified human analysts.
 
-AI outputs produced by Sentinel should be interpreted as:
-- investigative leads
-- anomaly signals
-- evidence correlations
-- activity requiring further investigation
+AI outputs produced by Sentinel represent:
+- Prioritized investigative leads
+- Multi-source anomaly indicators
+- Evidence timeline correlations
 
-Sentinel does **not** automatically determine that any person is guilty, malicious, or responsible for an incident. All investigative conclusions are the responsibility of human investigators acting within applicable legal and organisational frameworks.
+Sentinel does **not** make autonomous determinations of guilt, malice, or employment misconduct. All conclusions and investigative actions remain the sole responsibility of human investigators operating within applicable legal frameworks.
 
 ---
 
 ## License
 
-MIT License — see [`LICENSE`](LICENSE).
+This project is licensed under the MIT License — see the [`LICENSE`](LICENSE) file for details.
 
 Copyright (c) 2026 Sentinel Contributors

@@ -1,38 +1,56 @@
 #!/usr/bin/env python3
-"""
-create_case.py — Placeholder
+"""create_case.py — Create a new investigation case in Sentinel."""
 
-This script will eventually create a new investigation case via the backend API.
-
-Currently NOT IMPLEMENTED.
-
-Usage (future):
-    python scripts/create_case.py --title "Case Q1-2026" --description "Suspected data exfiltration"
-
-Requirements:
-    - Backend API running
-    - VITE_API_BASE_URL or BACKEND_HOST/BACKEND_PORT configured
-"""
+from __future__ import annotations
 
 import argparse
-import os
+import json
 import sys
+from pathlib import Path
 
-def main():
-    parser = argparse.ArgumentParser(description="Create a new investigation case (placeholder)")
-    parser.add_argument("--title", required=True, help="Case title")
-    parser.add_argument("--description", default="", help="Case description")
+# Add project root and backend to sys.path
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+BACKEND_ROOT = PROJECT_ROOT / "backend"
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+if str(BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(BACKEND_ROOT))
+
+from backend.app.schemas.cases import CaseCreate
+from backend.app.services.case_service import CaseService
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Create a new investigation case in Sentinel")
+    parser.add_argument("--title", required=True, help="Investigation case title")
+    parser.add_argument("--description", default="", help="Detailed case description")
+    parser.add_argument("--metadata", default="{}", help="Optional JSON metadata string")
     args = parser.parse_args()
 
-    print(f"[create_case] NOT YET IMPLEMENTED")
-    print(f"[create_case] Would create case:")
-    print(f"  Title: {args.title}")
-    print(f"  Description: {args.description}")
-    print("")
-    print("Required:")
-    print("  - Backend API running at VITE_API_BASE_URL or http://localhost:8000")
-    print("  - POST /cases endpoint implemented")
-    sys.exit(1)
+    try:
+        metadata = json.loads(args.metadata)
+    except json.JSONDecodeError as err:
+        print(f"Error: Invalid JSON for --metadata: {err}", file=sys.stderr)
+        sys.exit(1)
+
+    case_in = CaseCreate(
+        title=args.title,
+        description=args.description,
+        metadata=metadata,
+    )
+
+    service = CaseService.get_instance()
+    # pyrefly: ignore[bad-argument-type]
+    created = service.create_case(case_in)
+
+    print("\n[+] Investigation Case Created Successfully:")
+    print(f"  Case ID:     {created.case_id}")
+    print(f"  Title:       {created.title}")
+    print(f"  Status:      {created.status}")
+    print(f"  Description: {created.description or '(None)'}")
+    print(f"  Created At:  {created.created_at}")
+    print(f"  Metadata:    {json.dumps(created.metadata)}")
+
 
 if __name__ == "__main__":
     main()
