@@ -167,3 +167,6 @@ yarn-error.log*
 # -----------------------------------------------------------------------------
 .docker/
 docker-compose.override.yml
+
+# Local evidence store (SQLite DB + uploaded evidence) — never commit
+local-evidence-store/

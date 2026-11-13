@@ -11,17 +11,18 @@ The Video AI module handles surveillance and CCTV video evidence analysis, anoma
 - **Hugging Face Model**: [`Nikeytas/timesformer-best-crime-detector`](https://huggingface.co/Nikeytas/timesformer-best-crime-detector)
 - **Architecture**: Space-Time Transformer (TimeSformer) with divided space-time self-attention
 - **Training Benchmark**: Fine-tuned on the **UCF-Crime dataset** (~1,900+ surveillance videos)
-- **Reported Performance**:
-  - **F1 Score**: `0.8868` (World-record tier for UCF-Crime video classification)
-  - **Accuracy**: `0.8425`
-  - **Precision**: `0.8691` (estimated)
-  - **Recall**: `0.8513` (estimated)
+- **Reported performance (third-party model card, NOT verified by the Sentinel team)**:
+  - F1 `0.8868`, accuracy `0.8425` (marked "estimated" on the card). An independent evaluation on the
+    UCF-Crime test split is an open task (see `docs/STATUS.md`).
+- **Integration status (verified 2026-11-13)**: the 485 MB `model.pth` loads strictly into
+  `TimesformerForVideoClassification` (8 frames, 2 labels) with the safe `weights_only=True` loader,
+  and CPU inference runs at roughly 7 s of compute per second of video (2 s windows, laptop i5).
 - **Target Event Categories**:
   - Arson, Assault, Burglary, Explosion, Fighting
   - Road Accidents, Robbery, Shooting, Shoplifting
   - Stealing, Vandalism, and general physical surveillance anomalies
 - **Input Specifications**:
-  - 16 uniformly sampled frames per temporal window
+  - 8 uniformly sampled frames per temporal window (auto-detected from the checkpoint)
   - 224×224 resolution per frame
   - ImageNet normalization (`mean=[0.485, 0.456, 0.406]`, `std=[0.229, 0.224, 0.225]`)
 
@@ -57,11 +58,14 @@ detector = TimesformerCrimeDetector(auto_download=True)
 results = detector.analyze_video(
     video_path="evidence/corridor_cctv.mp4",
     window_seconds=2.0,
-    stride_seconds=1.0,
+    stride_seconds=2.0,
     threshold=0.5,
     case_id="CASE-2026-001",
     location_id="ZONE-HALLWAY-B",
+    base_timestamp="2026-01-15T14:32:00Z",  # wall-clock time of frame 0 (needed for correlation)
+    max_seconds=30,                          # bound CPU time
 )
+assert not results["is_fallback"], "weights not loaded -> motion heuristic was used"
 
 print(f"Status: {results['status']}")
 print(f"Max crime probability: {results['max_crime_probability']}")
@@ -78,8 +82,19 @@ python ai/video/detect_crime.py \
     --location-id ZONE-CORRIDOR-01 \
     --threshold 0.5 \
     --output artifacts/video/crime_analysis.json \
-    --events-output artifacts/video/crime_events.jsonl
+    --events-output artifacts/video/crime_events.jsonl \
+    --start-time 2026-01-15T14:32:00Z \
+    --max-seconds 30 \
+    --require-model
 ```
+
+- `--start-time`: wall-clock time of the first frame. Without it, timestamps are "now" and flagged
+  `timestamp_is_estimated`, so they will not line up with logs.
+- `--require-model`: fail instead of silently using the motion-heuristic fallback.
+- Inside a case, upload the video as evidence (`source_type=cctv_video`, metadata `recorded_at`, `location_id`)
+  and run `POST /api/analysis/start`; the API does the same thing per case. Without `recorded_at` the
+  video is still analysed, but its events are kept out of correlation; without `location_id` they cannot
+  be compared with badge swipes.
 
 ### 3. REST API
 
@@ -120,5 +135,8 @@ Detected crime events are automatically emitted conforming to Sentinel's [Canoni
   }
 }
 ```
+
+When the weights are not loaded, `metadata.model` is `motion-heuristic-fallback`, `metadata.is_fallback`
+is `true` and `f1_score` is `null`, so fallback output can never be mistaken for TimeSformer output.
 
 These canonical events feed directly into the **Correlation Engine** (`ai/correlation/run.py`), which aligns CCTV anomalies with endpoint and document logs in the global investigation timeline.

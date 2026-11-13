@@ -1,200 +1,64 @@
-# Backend — Sentinel
+# Backend — Sentinel API (FastAPI)
 
-> **Status**: Foundation only. The FastAPI application runs but has minimal endpoints.
-
----
-
-## Responsibility
-
-The Sentinel backend is the central REST API and orchestration layer. It is responsible for:
-
-- **Case management** — Create, list, update, and archive investigation cases
-- **Evidence ingestion** — Accept file uploads, compute SHA-256 hashes, store metadata in PostgreSQL, write files to evidence store, create audit records
-- **Analysis orchestration** — Queue AI analysis jobs via Celery, track analysis run status, collect results
-- **Event storage** — Persist canonical events from all AI pipelines to PostgreSQL
-- **Query APIs** — Serve timeline, evidence graph, and anomaly data to the frontend
-- **Audit & integrity** — Maintain append-only audit logs; provide evidence hash verification
-- **Security** — Authentication, authorization, input validation, CORS
-
----
-
-## Technology
-
-- **Python 3.11+**
-- **FastAPI** — REST API framework with automatic OpenAPI docs
-- **Pydantic v2** — Request/response validation and settings management
-- **SQLAlchemy 2.x** — ORM for PostgreSQL (planned)
-- **Alembic** — Database migrations (planned)
-- **Redis + Celery** — Background task queue for AI jobs (planned)
-- **PostgreSQL 16** — Primary database (planned)
-
----
-
-## Directory Structure
-
-```
-backend/
-├── app/
-│   ├── main.py                 # FastAPI app entry point
-│   ├── api/                    # API routers (PLACEHOLDERS)
-│   │   ├── cases.py
-│   │   ├── evidence.py
-│   │   ├── analysis.py
-│   │   ├── anomalies.py
-│   │   ├── timeline.py
-│   │   └── graph.py
-│   ├── models/                 # SQLAlchemy models (.gitkeep)
-│   ├── schemas/                # Pydantic schemas (.gitkeep)
-│   ├── services/               # Business logic (.gitkeep)
-│   ├── repositories/           # Data access layer (.gitkeep)
-│   ├── workers/                # Celery tasks (.gitkeep)
-│   └── security/               # Auth, permissions (.gitkeep)
-├── tests/                      # Backend tests (.gitkeep)
-├── requirements.txt            # Python dependencies
-└── README.md                   # This file
-```
-
----
-
-## API Endpoints
-
-### Implemented
-
-| Method | Path | Description |
-|---|---|---|
-| GET | `/` | Service identifier |
-| GET | `/health` | Health probe |
-
-### Planned (see `docs/architecture/api-contract.md`)
-
-| Method | Path | Description |
-|---|---|---|
-| POST | `/cases` | Create a case |
-| GET | `/cases` | List cases |
-| GET | `/cases/{id}` | Get case details |
-| POST | `/evidence` | Upload evidence |
-| GET | `/evidence/{id}` | Get evidence metadata |
-| GET | `/evidence/{id}/verify` | Verify evidence integrity |
-| POST | `/analysis/start` | Start AI analysis job |
-| GET | `/analysis/{id}` | Get analysis run status |
-| GET | `/timeline/{case_id}` | Get unified event timeline |
-| GET | `/graph/{case_id}` | Get entity relationship graph |
-| GET | `/anomalies/{case_id}` | List anomalies for a case |
-| GET | `/anomalies/{id}/detail` | Get anomaly detail |
-
----
-
-## Running Locally
-
-### Prerequisites
-
-- Python 3.11+
-- PostgreSQL 16 (for full implementation)
-- Redis 7 (for background workers)
-
-### Setup
+## Run
 
 ```bash
-cd backend
-
-# Create virtual environment
-python -m venv .venv
-source .venv/bin/activate  # or .venv\Scripts\activate on Windows
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Copy environment template
-cp ../.env.example .env
-# Edit .env with your configuration
-
-# Run the development server
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+# from the project root, inside the virtualenv
+uvicorn app.main:app --app-dir backend --reload --port 8000
 ```
 
-### API Documentation
+Paths in `.env` (`STORAGE_PATH`, `ARTIFACTS_DIR`, …) are resolved from the project root, so the working directory doesn't matter. Docs are at `/docs`, the schema at `/openapi.json`, and the health check at `/health`.
 
-Once running, auto-generated docs are available at:
-- Swagger UI: `http://localhost:8000/docs`
-- ReDoc: `http://localhost:8000/redoc`
-
----
-
-## Configuration
-
-All configuration is via environment variables (see `.env.example`):
-
-| Variable | Description |
-|---|---|
-| `DATABASE_URL` | PostgreSQL connection string |
-| `REDIS_URL` | Redis connection string |
-| `SECRET_KEY` | JWT signing secret |
-| `STORAGE_PATH` | Local evidence store root path |
-| `MLFLOW_TRACKING_URI` | MLflow server URL |
-
----
-
-## Architecture Notes
-
-### Service / Repository / Model Separation
+## Layout
 
 ```
-API Router (app/api/)       →  HTTP layer, request/response
-    │
-    ▼
-Service (app/services/)     →  Business logic, orchestration
-    │
-    ├── Repository (app/repositories/)  →  Data access, SQLAlchemy
-    │       │
-    │       ▼
-    │   Model (app/models/)             →  SQLAlchemy ORM classes
-    │
-    ▼
-Worker (app/workers/)       →  Background jobs (Celery)
+backend/app/
+├── main.py            app factory: CORS, /health, routers under /api (+ hidden legacy un-prefixed routes)
+├── config.py          environment-driven settings (paths resolved from project root)
+├── db.py              SQLite schema/migrations, connection helper, hash-chained audit log
+├── api/               cases, evidence, analysis, timeline, graph, anomalies, video routers
+├── schemas/           Pydantic request/response models
+└── services/          CaseService, EvidenceService, AnalysisService, VideoAnalysisService (+ reset_services)
+backend/Dockerfile     CPU-only image; build context = project root
 ```
 
-### Evidence Integrity
+## Key behaviours
 
-Evidence files are stored in the local filesystem (`STORAGE_PATH`). PostgreSQL stores only metadata including the SHA-256 hash. The `/evidence/{id}/verify` endpoint re-computes the hash and compares it.
+- **Evidence integrity:**
+  - Every file is streamed to `STORAGE_PATH/<case>/<evidence>/` and hashed with SHA-256.
+  - Uploads larger than `MAX_UPLOAD_SIZE_MB` are rejected with 413 and nothing is kept.
+  - Every action (`ingested`, `verified`, `accessed`, `analyzed`, `deleted`) appends an audit record chained to the previous one by hash.
+  - `GET /api/evidence/{id}/audit/verify` detects edited or removed records.
+  - Audit records outlive deleted evidence and deleted cases.
+- **Analysis:**
+  - `POST /api/analysis/start` queues an in-process background task (`AnalysisService.execute_run`).
+  - The task routes each evidence item to its processor (`ai/processing`), runs the correlation engine, and writes `ARTIFACTS_DIR/cases/<case_id>/correlation/*.json`.
+  - The timeline, graph, anomalies and suspects endpoints read those files, so results are strictly per case.
+  - Results are written to a staging folder and swapped in only on success, so the previous results stay readable during a re-run and survive a failed run.
+  - Only one active run per case is allowed (409 otherwise, checked atomically). Runs interrupted by a restart are marked failed at start-up.
+  - CCTV video without `recorded_at` metadata is analysed, but its events are excluded from correlation (see the run's `evidence_results[].message`).
+- **Video:**
+  - TimeSformer loads lazily on first use, so start-up and tests stay fast.
+  - Inference is serialised with a lock and bounded by `VIDEO_MAX_SECONDS`.
+  - `POST /api/video/analyze` only accepts paths inside the project or the evidence store.
 
-### Background Processing
+## Not implemented yet
 
-Long-running AI analysis jobs are executed by Celery workers:
-1. API receives `POST /analysis/start`
-2. Creates `analysis_runs` record with status `queued`
-3. Queues Celery task
-4. Worker picks up task, updates status to `running`
-5. Worker processes evidence, writes events to PostgreSQL
-6. Worker updates `analysis_runs` with `completed` and summary
+- Authentication / roles (`AUTH_ENABLED` is ignored).
+- PostgreSQL + Alembic.
+- Redis/Celery workers: in-process background tasks don't survive restarts and run in the API process.
+- PDF/OCR text extraction (PDFs are stored and hashed but skipped by analysis).
 
----
+See `docs/STATUS.md`.
 
-## Testing
+## Docker
+
+Built and smoke-tested 2026-11-14. See the Docker section of the root `README.md`.
+
+## Tests
 
 ```bash
-# Run tests (once implemented)
-cd backend
-python -m pytest tests/ -v
-
-# Lint
-ruff check .
-
-# Type check
-mypy app/
+python -m pytest tests -q
 ```
 
----
-
-## Development Workflow
-
-1. Make changes
-2. Test locally
-3. Run lint: `ruff check .`
-4. Push branch
-5. Open PR
-6. One teammate reviews
-7. Merge
-
----
-
-*Backend implementation begins with the case and evidence API endpoints, PostgreSQL models, and evidence ingestion pipeline.*
+`tests/conftest.py` isolates storage and artifacts per test and never loads the video model.

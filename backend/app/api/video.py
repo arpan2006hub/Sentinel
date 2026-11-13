@@ -32,11 +32,13 @@ async def get_model_info() -> ModelInfoResponse:
     summary="Analyze Video File Path",
     description="Runs TimeSformer crime detection on a video file located on disk.",
 )
-async def analyze_video(request: VideoAnalysisRequest) -> VideoAnalysisResponse:
+def analyze_video(request: VideoAnalysisRequest) -> VideoAnalysisResponse:
     service = VideoAnalysisService.get_instance()
     try:
         result = service.analyze_video_path(request)
         return VideoAnalysisResponse(**result)
+    except PermissionError as err:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(err))
     except FileNotFoundError as err:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -53,25 +55,32 @@ async def analyze_video(request: VideoAnalysisRequest) -> VideoAnalysisResponse:
     "/analyze-upload",
     response_model=VideoAnalysisResponse,
     summary="Analyze Uploaded Video",
-    description="Uploads and analyzes a video file for criminal activities using TimeSformer.",
+    description=(
+        "Quick-look analysis of an uploaded video (not stored as evidence). To make video part of a case, "
+        "upload it via POST /api/evidence with source_type=cctv_video and run POST /api/analysis/start."
+    ),
 )
-async def analyze_uploaded_video(
+def analyze_uploaded_video(
     file: UploadFile = File(..., description="Video file to analyze (.mp4, .avi, etc.)"),
     case_id: str = Form("CASE-DEFAULT", description="Associated case ID"),
     location_id: Optional[str] = Form(None, description="Camera zone / location ID"),
     threshold: float = Form(0.5, ge=0.0, le=1.0, description="Crime threshold"),
     window_seconds: float = Form(2.0, ge=0.5, le=30.0, description="Clip duration"),
-    stride_seconds: float = Form(1.0, ge=0.2, le=30.0, description="Stride duration"),
+    stride_seconds: float = Form(2.0, ge=0.2, le=30.0, description="Stride duration"),
+    start_time: Optional[str] = Form(None, description="ISO 8601 time of the first frame"),
+    max_seconds: Optional[float] = Form(None, gt=0, description="Analyse at most N seconds (CPU bound)"),
 ) -> VideoAnalysisResponse:
     service = VideoAnalysisService.get_instance()
     try:
-        result = await service.analyze_uploaded_file(
+        result = service.analyze_uploaded_file(
             file=file,
             case_id=case_id,
             location_id=location_id,
             threshold=threshold,
             window_seconds=window_seconds,
             stride_seconds=stride_seconds,
+            start_time=start_time,
+            max_seconds=max_seconds,
         )
         return VideoAnalysisResponse(**result)
     except Exception as err:
@@ -87,9 +96,9 @@ async def analyze_uploaded_video(
     summary="Download Model Weights",
     description="Downloads Nikeytas/timesformer-best-crime-detector weights from Hugging Face.",
 )
-async def download_weights() -> ModelInfoResponse:
+def download_weights() -> ModelInfoResponse:
     service = VideoAnalysisService.get_instance()
-    success = service.detector.download_and_load()
+    success = service.download_weights()
     if not success:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,

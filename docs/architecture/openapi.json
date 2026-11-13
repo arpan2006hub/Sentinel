@@ -1,0 +1,2851 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Sentinel API",
+    "description": "Local-first multimodal AI system for insider-threat investigation assistance. Outputs are investigative leads for human analysts, not automated verdicts.",
+    "version": "0.2.0"
+  },
+  "paths": {
+    "/": {
+      "get": {
+        "tags": [
+          "Status"
+        ],
+        "summary": "Root",
+        "description": "Return a basic service identifier.",
+        "operationId": "root__get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Root  Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": [
+          "Status"
+        ],
+        "summary": "Health",
+        "description": "Health probe: database, evidence storage, artifacts and video model status.",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Health Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/cases": {
+      "post": {
+        "tags": [
+          "Cases"
+        ],
+        "summary": "Create a new investigation case",
+        "operationId": "create_case_api_cases_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaseCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Cases"
+        ],
+        "summary": "List investigation cases",
+        "operationId": "list_cases_api_cases_get",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "open",
+                    "investigating",
+                    "closed",
+                    "archived"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by status",
+              "title": "Status"
+            },
+            "description": "Filter by status"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Page Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/cases/{case_id}": {
+      "get": {
+        "tags": [
+          "Cases"
+        ],
+        "summary": "Get case details",
+        "operationId": "get_case_api_cases__case_id__get",
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Case Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Cases"
+        ],
+        "summary": "Update case",
+        "operationId": "update_case_api_cases__case_id__patch",
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Case Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaseUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Cases"
+        ],
+        "summary": "Delete case, its evidence files and analysis outputs (audit trail is kept)",
+        "operationId": "delete_case_api_cases__case_id__delete",
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Case Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/cases/{case_id}/summary": {
+      "get": {
+        "tags": [
+          "Cases"
+        ],
+        "summary": "Case dashboard overview (counts, latest run, top suspects)",
+        "operationId": "get_case_summary_api_cases__case_id__summary_get",
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Case Id"
+            }
+          },
+          {
+            "name": "top",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "minimum": 1,
+              "default": 5,
+              "title": "Top"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseSummaryResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/cases/{case_id}/suspects": {
+      "get": {
+        "tags": [
+          "Cases"
+        ],
+        "summary": "Ranked entities with reasons and evidence references",
+        "operationId": "get_suspects_api_cases__case_id__suspects_get",
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Case Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Suspects Api Cases  Case Id  Suspects Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/evidence/source-types": {
+      "get": {
+        "tags": [
+          "Evidence"
+        ],
+        "summary": "Supported evidence source types (for the upload form)",
+        "operationId": "list_source_types_api_evidence_source_types_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SourceTypeInfo"
+                  },
+                  "type": "array",
+                  "title": "Response List Source Types Api Evidence Source Types Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/evidence": {
+      "post": {
+        "tags": [
+          "Evidence"
+        ],
+        "summary": "Upload and register evidence",
+        "description": "Uploads an evidence file, computes its SHA-256 fingerprint, stores it in the local evidence store and appends a hash-chained audit record. Optional `metadata` (JSON string) keys used by the analysis: `recorded_at` (ISO time of the first video frame / document date) and `location_id` (camera zone, host location).",
+        "operationId": "upload_evidence_api_evidence_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_evidence_api_evidence_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidenceResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Evidence"
+        ],
+        "summary": "List evidence items",
+        "operationId": "list_evidence_api_evidence_get",
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional case ID filter",
+              "title": "Case Id"
+            },
+            "description": "Optional case ID filter"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidenceListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/evidence/{evidence_id}": {
+      "get": {
+        "tags": [
+          "Evidence"
+        ],
+        "summary": "Get evidence metadata",
+        "operationId": "get_evidence_api_evidence__evidence_id__get",
+        "parameters": [
+          {
+            "name": "evidence_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Evidence Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidenceResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Evidence"
+        ],
+        "summary": "Delete evidence (file + metadata; audit trail is preserved)",
+        "operationId": "delete_evidence_api_evidence__evidence_id__delete",
+        "parameters": [
+          {
+            "name": "evidence_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Evidence Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/evidence/{evidence_id}/file": {
+      "get": {
+        "tags": [
+          "Evidence"
+        ],
+        "summary": "Download the stored evidence file (audited)",
+        "operationId": "download_evidence_api_evidence__evidence_id__file_get",
+        "parameters": [
+          {
+            "name": "evidence_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Evidence Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/evidence/{evidence_id}/verify": {
+      "get": {
+        "tags": [
+          "Evidence"
+        ],
+        "summary": "Verify evidence integrity (SHA-256)",
+        "operationId": "verify_evidence_api_evidence__evidence_id__verify_get",
+        "parameters": [
+          {
+            "name": "evidence_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Evidence Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidenceVerifyResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/evidence/{evidence_id}/audit": {
+      "get": {
+        "tags": [
+          "Evidence"
+        ],
+        "summary": "Get chain-of-custody audit log (also available after deletion)",
+        "operationId": "get_evidence_audit_api_evidence__evidence_id__audit_get",
+        "parameters": [
+          {
+            "name": "evidence_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Evidence Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EvidenceAuditRecord"
+                  },
+                  "title": "Response Get Evidence Audit Api Evidence  Evidence Id  Audit Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/evidence/{evidence_id}/audit/verify": {
+      "get": {
+        "tags": [
+          "Evidence"
+        ],
+        "summary": "Verify the audit hash chain (detects edited or removed audit records)",
+        "operationId": "verify_evidence_audit_api_evidence__evidence_id__audit_verify_get",
+        "parameters": [
+          {
+            "name": "evidence_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Evidence Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditChainVerifyResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/analysis/start": {
+      "post": {
+        "tags": [
+          "Analysis"
+        ],
+        "summary": "Start analysing all evidence of a case",
+        "description": "Queues a background run that processes every evidence item of the case into canonical events and correlates them (timeline, contradictions, evidence graph, suspect ranking). Poll `GET /api/analysis/{run_id}` until `status` is `completed` or `failed`. Returns 409 if a run is already active for the case. Video evidence is CPU-heavy; set `include_video=false` for a fast run.",
+        "operationId": "start_analysis_api_analysis_start_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnalysisStartRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysisRunResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/analysis": {
+      "get": {
+        "tags": [
+          "Analysis"
+        ],
+        "summary": "List analysis runs",
+        "operationId": "list_runs_api_analysis_get",
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Case Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysisRunListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/analysis/{run_id}": {
+      "get": {
+        "tags": [
+          "Analysis"
+        ],
+        "summary": "Get analysis run status and results",
+        "operationId": "get_run_api_analysis__run_id__get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysisRunResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/timeline/{case_id}": {
+      "get": {
+        "tags": [
+          "Timeline"
+        ],
+        "summary": "Get the unified event timeline of a case",
+        "operationId": "get_timeline_api_timeline__case_id__get",
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Case Id"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Events at or after this ISO timestamp",
+              "title": "From"
+            },
+            "description": "Events at or after this ISO timestamp"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Events at or before this ISO timestamp",
+              "title": "To"
+            },
+            "description": "Events at or before this ISO timestamp"
+          },
+          {
+            "name": "actor_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Canonical entity, e.g. user_007",
+              "title": "Actor Id"
+            },
+            "description": "Canonical entity, e.g. user_007"
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Modality: cyber, physical, video, document",
+              "title": "Source"
+            },
+            "description": "Modality: cyber, physical, video, document"
+          },
+          {
+            "name": "source_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "e.g. endpoint_log, badge_log, cctv_video, text_document",
+              "title": "Source Type"
+            },
+            "description": "e.g. endpoint_log, badge_log, cctv_video, text_document"
+          },
+          {
+            "name": "flagged_only",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Only events flagged by a model (prediction == 1)",
+              "default": false,
+              "title": "Flagged Only"
+            },
+            "description": "Only events flagged by a model (prediction == 1)"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 100,
+              "title": "Page Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Timeline Api Timeline  Case Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/timeline/{case_id}/clusters": {
+      "get": {
+        "tags": [
+          "Timeline"
+        ],
+        "summary": "Incident clusters (temporal windows) of a case",
+        "operationId": "get_clusters_api_timeline__case_id__clusters_get",
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Case Id"
+            }
+          },
+          {
+            "name": "cross_modal_only",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Only clusters spanning more than one modality",
+              "default": false,
+              "title": "Cross Modal Only"
+            },
+            "description": "Only clusters spanning more than one modality"
+          },
+          {
+            "name": "include_events",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Embed full events (otherwise only event_ids)",
+              "default": false,
+              "title": "Include Events"
+            },
+            "description": "Embed full events (otherwise only event_ids)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Clusters Api Timeline  Case Id  Clusters Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/graph/{case_id}": {
+      "get": {
+        "tags": [
+          "Graph"
+        ],
+        "summary": "Get the entity/evidence relationship graph of a case",
+        "description": "`format=standard` returns {nodes, edges, metrics}; `format=cytoscape` returns {elements: {nodes, edges}} ready for Cytoscape.js. Node types: user, event, location, document, object, evidence, anomaly.",
+        "operationId": "get_evidence_graph_api_graph__case_id__get",
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Case Id"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "standard",
+                "cytoscape"
+              ],
+              "type": "string",
+              "default": "standard",
+              "title": "Format"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Evidence Graph Api Graph  Case Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/anomalies/{case_id}": {
+      "get": {
+        "tags": [
+          "Anomalies"
+        ],
+        "summary": "List anomalies / contradictions for a case",
+        "description": "Types: impossible_travel, uncredentialed_presence, denied_access_then_activity, after_hours_activity.",
+        "operationId": "list_anomalies_api_anomalies__case_id__get",
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Case Id"
+            }
+          },
+          {
+            "name": "severity",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "low",
+                    "medium",
+                    "high",
+                    "critical"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Severity"
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by anomaly type",
+              "title": "Type"
+            },
+            "description": "Filter by anomaly type"
+          },
+          {
+            "name": "entity",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by canonical entity",
+              "title": "Entity"
+            },
+            "description": "Filter by canonical entity"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Page Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response List Anomalies Api Anomalies  Case Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/anomalies/{case_id}/{anomaly_id}": {
+      "get": {
+        "tags": [
+          "Anomalies"
+        ],
+        "summary": "Anomaly detail with the supporting events",
+        "operationId": "get_anomaly_detail_api_anomalies__case_id___anomaly_id__get",
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Case Id"
+            }
+          },
+          {
+            "name": "anomaly_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Anomaly Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Anomaly Detail Api Anomalies  Case Id   Anomaly Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/video/model-info": {
+      "get": {
+        "tags": [
+          "Video AI"
+        ],
+        "summary": "Get Video Crime Detector Model Info",
+        "description": "Returns metadata and current status for the Nikeytas/timesformer-best-crime-detector model.",
+        "operationId": "get_model_info_api_video_model_info_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelInfoResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/video/analyze": {
+      "post": {
+        "tags": [
+          "Video AI"
+        ],
+        "summary": "Analyze Video File Path",
+        "description": "Runs TimeSformer crime detection on a video file located on disk.",
+        "operationId": "analyze_video_api_video_analyze_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VideoAnalysisRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VideoAnalysisResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/video/analyze-upload": {
+      "post": {
+        "tags": [
+          "Video AI"
+        ],
+        "summary": "Analyze Uploaded Video",
+        "description": "Quick-look analysis of an uploaded video (not stored as evidence). To make video part of a case, upload it via POST /api/evidence with source_type=cctv_video and run POST /api/analysis/start.",
+        "operationId": "analyze_uploaded_video_api_video_analyze_upload_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_analyze_uploaded_video_api_video_analyze_upload_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VideoAnalysisResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/video/download-weights": {
+      "post": {
+        "tags": [
+          "Video AI"
+        ],
+        "summary": "Download Model Weights",
+        "description": "Downloads Nikeytas/timesformer-best-crime-detector weights from Hugging Face.",
+        "operationId": "download_weights_api_video_download_weights_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelInfoResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AnalysisRunListResponse": {
+        "properties": {
+          "runs": {
+            "items": {
+              "$ref": "#/components/schemas/AnalysisRunResponse"
+            },
+            "type": "array",
+            "title": "Runs"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "runs",
+          "total"
+        ],
+        "title": "AnalysisRunListResponse"
+      },
+      "AnalysisRunResponse": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "case_id": {
+            "type": "string",
+            "title": "Case Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "queued, running, completed, failed"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "options": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Options"
+          },
+          "summary": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Summary"
+          },
+          "evidence_results": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceProcessingResult"
+            },
+            "type": "array",
+            "title": "Evidence Results"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id",
+          "case_id",
+          "status",
+          "created_at"
+        ],
+        "title": "AnalysisRunResponse"
+      },
+      "AnalysisStartRequest": {
+        "properties": {
+          "case_id": {
+            "type": "string",
+            "title": "Case Id",
+            "description": "Case to analyse"
+          },
+          "include_video": {
+            "type": "boolean",
+            "title": "Include Video",
+            "description": "Run TimeSformer on cctv_video evidence. CPU-heavy (~7 s of CPU per video second).",
+            "default": true
+          },
+          "video_max_seconds": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Video Max Seconds",
+            "description": "Analyse at most N seconds per video (default: VIDEO_MAX_SECONDS env, 120)"
+          },
+          "video_threshold": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Video Threshold",
+            "default": 0.5
+          },
+          "video_window_seconds": {
+            "type": "number",
+            "maximum": 30.0,
+            "minimum": 0.5,
+            "title": "Video Window Seconds",
+            "default": 2.0
+          },
+          "video_stride_seconds": {
+            "type": "number",
+            "maximum": 30.0,
+            "minimum": 0.2,
+            "title": "Video Stride Seconds",
+            "default": 2.0
+          },
+          "window_minutes": {
+            "type": "integer",
+            "maximum": 1440.0,
+            "minimum": 1.0,
+            "title": "Window Minutes",
+            "description": "Correlation clustering window",
+            "default": 60
+          }
+        },
+        "type": "object",
+        "required": [
+          "case_id"
+        ],
+        "title": "AnalysisStartRequest"
+      },
+      "AuditChainVerifyResponse": {
+        "properties": {
+          "evidence_id": {
+            "type": "string",
+            "title": "Evidence Id"
+          },
+          "valid": {
+            "type": "boolean",
+            "title": "Valid"
+          },
+          "records": {
+            "type": "integer",
+            "title": "Records"
+          },
+          "legacy_unverifiable": {
+            "type": "integer",
+            "title": "Legacy Unverifiable",
+            "default": 0
+          },
+          "broken_at_index": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Broken At Index"
+          },
+          "broken_audit_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Broken Audit Id"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "evidence_id",
+          "valid",
+          "records"
+        ],
+        "title": "AuditChainVerifyResponse",
+        "description": "Result of recomputing the audit hash chain of one evidence item."
+      },
+      "Body_analyze_uploaded_video_api_video_analyze_upload_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "description": "Video file to analyze (.mp4, .avi, etc.)"
+          },
+          "case_id": {
+            "type": "string",
+            "title": "Case Id",
+            "description": "Associated case ID",
+            "default": "CASE-DEFAULT"
+          },
+          "location_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Id",
+            "description": "Camera zone / location ID"
+          },
+          "threshold": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Threshold",
+            "description": "Crime threshold",
+            "default": 0.5
+          },
+          "window_seconds": {
+            "type": "number",
+            "maximum": 30.0,
+            "minimum": 0.5,
+            "title": "Window Seconds",
+            "description": "Clip duration",
+            "default": 2.0
+          },
+          "stride_seconds": {
+            "type": "number",
+            "maximum": 30.0,
+            "minimum": 0.2,
+            "title": "Stride Seconds",
+            "description": "Stride duration",
+            "default": 2.0
+          },
+          "start_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Time",
+            "description": "ISO 8601 time of the first frame"
+          },
+          "max_seconds": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Seconds",
+            "description": "Analyse at most N seconds (CPU bound)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_analyze_uploaded_video_api_video_analyze_upload_post"
+      },
+      "Body_upload_evidence_api_evidence_post": {
+        "properties": {
+          "case_id": {
+            "type": "string",
+            "title": "Case Id",
+            "description": "Target investigation case ID"
+          },
+          "source_type": {
+            "type": "string",
+            "title": "Source Type",
+            "description": "See GET /api/evidence/source-types",
+            "default": "general"
+          },
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "description": "Evidence file"
+          },
+          "metadata": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metadata",
+            "description": "JSON object, e.g. {\"recorded_at\": \"2026-01-16T21:58:00Z\"}"
+          }
+        },
+        "type": "object",
+        "required": [
+          "case_id",
+          "file"
+        ],
+        "title": "Body_upload_evidence_api_evidence_post"
+      },
+      "CanonicalEvent": {
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "title": "Event Id"
+          },
+          "case_id": {
+            "type": "string",
+            "title": "Case Id"
+          },
+          "timestamp_start": {
+            "type": "string",
+            "title": "Timestamp Start"
+          },
+          "timestamp_end": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timestamp End"
+          },
+          "actor_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Id",
+            "default": "unknown"
+          },
+          "action": {
+            "type": "string",
+            "title": "Action",
+            "default": "crime_detected"
+          },
+          "object_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Object Id"
+          },
+          "location_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Id"
+          },
+          "source_type": {
+            "type": "string",
+            "title": "Source Type",
+            "default": "cctv_video"
+          },
+          "source_id": {
+            "type": "string",
+            "title": "Source Id"
+          },
+          "confidence": {
+            "type": "number",
+            "title": "Confidence"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metadata"
+          }
+        },
+        "type": "object",
+        "required": [
+          "event_id",
+          "case_id",
+          "timestamp_start",
+          "source_id",
+          "confidence"
+        ],
+        "title": "CanonicalEvent",
+        "description": "Sentinel Canonical Event representation for video anomaly/crime."
+      },
+      "CaseCreate": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Title",
+            "description": "Case title"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description",
+            "description": "Case description",
+            "default": ""
+          },
+          "metadata": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metadata",
+            "description": "Custom metadata"
+          }
+        },
+        "type": "object",
+        "required": [
+          "title"
+        ],
+        "title": "CaseCreate",
+        "description": "Payload for creating a new case."
+      },
+      "CaseListResponse": {
+        "properties": {
+          "cases": {
+            "items": {
+              "$ref": "#/components/schemas/CaseResponse"
+            },
+            "type": "array",
+            "title": "Cases"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page",
+            "default": 1
+          },
+          "page_size": {
+            "type": "integer",
+            "title": "Page Size",
+            "default": 20
+          }
+        },
+        "type": "object",
+        "required": [
+          "cases",
+          "total"
+        ],
+        "title": "CaseListResponse",
+        "description": "Paginated list of cases."
+      },
+      "CaseResponse": {
+        "properties": {
+          "case_id": {
+            "type": "string",
+            "title": "Case Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "evidence_count": {
+            "type": "integer",
+            "title": "Evidence Count",
+            "default": 0
+          },
+          "event_count": {
+            "type": "integer",
+            "title": "Event Count",
+            "description": "Events in the latest completed analysis run",
+            "default": 0
+          },
+          "anomaly_count": {
+            "type": "integer",
+            "title": "Anomaly Count",
+            "description": "Contradictions/anomalies in the latest completed analysis run",
+            "default": 0
+          },
+          "last_analysis_run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Analysis Run Id"
+          },
+          "last_analysis_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Analysis Status"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "title": "Updated At"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metadata"
+          }
+        },
+        "type": "object",
+        "required": [
+          "case_id",
+          "title",
+          "description",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "CaseResponse",
+        "description": "Complete case representation returned by the API."
+      },
+      "CaseSummaryResponse": {
+        "properties": {
+          "case": {
+            "$ref": "#/components/schemas/CaseResponse"
+          },
+          "analysis": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Analysis",
+            "description": "Latest analysis run (any status)"
+          },
+          "summary": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Summary",
+            "description": "Correlation summary of the latest completed run"
+          },
+          "top_suspects": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Top Suspects"
+          },
+          "anomalies_by_severity": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Anomalies By Severity"
+          },
+          "evidence_by_status": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Evidence By Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "case"
+        ],
+        "title": "CaseSummaryResponse",
+        "description": "Dashboard overview for one case."
+      },
+      "CaseUpdate": {
+        "properties": {
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "open",
+                  "investigating",
+                  "closed",
+                  "archived"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status",
+            "description": "open, investigating, closed, archived"
+          },
+          "metadata": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metadata"
+          }
+        },
+        "type": "object",
+        "title": "CaseUpdate",
+        "description": "Payload for updating an existing case (all fields optional)."
+      },
+      "CrimeSegment": {
+        "properties": {
+          "start_seconds": {
+            "type": "number",
+            "title": "Start Seconds"
+          },
+          "end_seconds": {
+            "type": "number",
+            "title": "End Seconds"
+          },
+          "prediction": {
+            "type": "string",
+            "title": "Prediction"
+          },
+          "crime_probability": {
+            "type": "number",
+            "title": "Crime Probability"
+          },
+          "confidence": {
+            "type": "number",
+            "title": "Confidence"
+          }
+        },
+        "type": "object",
+        "required": [
+          "start_seconds",
+          "end_seconds",
+          "prediction",
+          "crime_probability",
+          "confidence"
+        ],
+        "title": "CrimeSegment",
+        "description": "Crime detection results for a specific temporal window in a video."
+      },
+      "EvidenceAuditRecord": {
+        "properties": {
+          "audit_id": {
+            "type": "string",
+            "title": "Audit Id"
+          },
+          "evidence_id": {
+            "type": "string",
+            "title": "Evidence Id"
+          },
+          "case_id": {
+            "type": "string",
+            "title": "Case Id"
+          },
+          "action": {
+            "type": "string",
+            "title": "Action",
+            "description": "ingested, verified, accessed, analyzed, deleted"
+          },
+          "actor": {
+            "type": "string",
+            "title": "Actor",
+            "default": "system"
+          },
+          "timestamp": {
+            "type": "string",
+            "title": "Timestamp"
+          },
+          "details": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Details"
+          },
+          "prev_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prev Hash"
+          },
+          "record_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Record Hash"
+          }
+        },
+        "type": "object",
+        "required": [
+          "audit_id",
+          "evidence_id",
+          "case_id",
+          "action",
+          "timestamp"
+        ],
+        "title": "EvidenceAuditRecord",
+        "description": "Append-only, hash-chained audit trail entry for evidence chain of custody."
+      },
+      "EvidenceListResponse": {
+        "properties": {
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceResponse"
+            },
+            "type": "array",
+            "title": "Evidence"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "evidence",
+          "total"
+        ],
+        "title": "EvidenceListResponse",
+        "description": "List of evidence items associated with a case or repository."
+      },
+      "EvidenceProcessingResult": {
+        "properties": {
+          "evidence_id": {
+            "type": "string",
+            "title": "Evidence Id"
+          },
+          "file_name": {
+            "type": "string",
+            "title": "File Name"
+          },
+          "source_type": {
+            "type": "string",
+            "title": "Source Type"
+          },
+          "processor": {
+            "type": "string",
+            "title": "Processor"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "processed, skipped, error"
+          },
+          "events": {
+            "type": "integer",
+            "title": "Events",
+            "default": 0
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "evidence_id",
+          "file_name",
+          "source_type",
+          "processor",
+          "status"
+        ],
+        "title": "EvidenceProcessingResult"
+      },
+      "EvidenceResponse": {
+        "properties": {
+          "evidence_id": {
+            "type": "string",
+            "title": "Evidence Id"
+          },
+          "case_id": {
+            "type": "string",
+            "title": "Case Id"
+          },
+          "file_name": {
+            "type": "string",
+            "title": "File Name"
+          },
+          "file_hash": {
+            "type": "string",
+            "title": "File Hash",
+            "description": "SHA-256 integrity hash formatted as sha256:..."
+          },
+          "file_size_bytes": {
+            "type": "integer",
+            "title": "File Size Bytes"
+          },
+          "source_type": {
+            "type": "string",
+            "title": "Source Type",
+            "description": "See GET /api/evidence/source-types"
+          },
+          "processing_status": {
+            "type": "string",
+            "title": "Processing Status",
+            "description": "pending, processing, processed, skipped, error",
+            "default": "pending"
+          },
+          "ingested_at": {
+            "type": "string",
+            "title": "Ingested At"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metadata"
+          }
+        },
+        "type": "object",
+        "required": [
+          "evidence_id",
+          "case_id",
+          "file_name",
+          "file_hash",
+          "file_size_bytes",
+          "source_type",
+          "ingested_at"
+        ],
+        "title": "EvidenceResponse",
+        "description": "Metadata response for an ingested evidence item."
+      },
+      "EvidenceVerifyResponse": {
+        "properties": {
+          "evidence_id": {
+            "type": "string",
+            "title": "Evidence Id"
+          },
+          "file_name": {
+            "type": "string",
+            "title": "File Name"
+          },
+          "stored_hash": {
+            "type": "string",
+            "title": "Stored Hash"
+          },
+          "computed_hash": {
+            "type": "string",
+            "title": "Computed Hash"
+          },
+          "integrity": {
+            "type": "string",
+            "title": "Integrity",
+            "description": "'verified' if hashes match, 'failed' otherwise"
+          },
+          "checked_at": {
+            "type": "string",
+            "title": "Checked At"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "evidence_id",
+          "file_name",
+          "stored_hash",
+          "computed_hash",
+          "integrity",
+          "checked_at"
+        ],
+        "title": "EvidenceVerifyResponse",
+        "description": "Cryptographic integrity verification result."
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "ModelInfoResponse": {
+        "properties": {
+          "model_id": {
+            "type": "string",
+            "title": "Model Id",
+            "default": "Nikeytas/timesformer-best-crime-detector"
+          },
+          "architecture": {
+            "type": "string",
+            "title": "Architecture",
+            "default": "TimeSformer (Time-Space Transformer)"
+          },
+          "dataset": {
+            "type": "string",
+            "title": "Dataset",
+            "default": "UCF-Crime"
+          },
+          "f1_score": {
+            "type": "number",
+            "title": "F1 Score",
+            "default": 0.8868
+          },
+          "accuracy": {
+            "type": "number",
+            "title": "Accuracy",
+            "default": 0.8425
+          },
+          "is_loaded": {
+            "type": "boolean",
+            "title": "Is Loaded"
+          },
+          "is_fallback": {
+            "type": "boolean",
+            "title": "Is Fallback"
+          },
+          "weights_available": {
+            "type": "boolean",
+            "title": "Weights Available",
+            "description": "Weights file present locally (loaded lazily on first analysis)",
+            "default": false
+          },
+          "metrics_source": {
+            "type": "string",
+            "title": "Metrics Source",
+            "default": "third-party Hugging Face model card (not verified by the Sentinel team)"
+          },
+          "device": {
+            "type": "string",
+            "title": "Device"
+          },
+          "model_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Path"
+          },
+          "supported_classes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Supported Classes",
+            "default": [
+              "Normal",
+              "Crime (Arson, Assault, Burglary, Robbery, Shooting, Stealing, Vandalism, etc.)"
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "is_loaded",
+          "is_fallback",
+          "device"
+        ],
+        "title": "ModelInfoResponse",
+        "description": "Information and current runtime status of the crime detection model."
+      },
+      "SourceTypeInfo": {
+        "properties": {
+          "source_type": {
+            "type": "string",
+            "title": "Source Type"
+          },
+          "processor": {
+            "type": "string",
+            "title": "Processor"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source_type",
+          "processor",
+          "description"
+        ],
+        "title": "SourceTypeInfo"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "VideoAnalysisRequest": {
+        "properties": {
+          "video_path": {
+            "type": "string",
+            "title": "Video Path",
+            "description": "Absolute or relative path to the video file."
+          },
+          "window_seconds": {
+            "type": "number",
+            "maximum": 30.0,
+            "minimum": 0.5,
+            "title": "Window Seconds",
+            "description": "Duration in seconds for each temporal clip.",
+            "default": 2.0
+          },
+          "stride_seconds": {
+            "type": "number",
+            "maximum": 30.0,
+            "minimum": 0.2,
+            "title": "Stride Seconds",
+            "description": "Step in seconds between successive clips.",
+            "default": 2.0
+          },
+          "threshold": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Threshold",
+            "description": "Confidence threshold for crime classification.",
+            "default": 0.5
+          },
+          "case_id": {
+            "type": "string",
+            "title": "Case Id",
+            "description": "Associated investigation case ID.",
+            "default": "CASE-DEFAULT"
+          },
+          "location_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Id",
+            "description": "Camera zone or location identifier."
+          },
+          "evidence_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Id",
+            "description": "Source evidence ID."
+          },
+          "start_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Time",
+            "description": "ISO 8601 wall-clock time of the first frame (aligns events with other evidence)."
+          },
+          "max_seconds": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Seconds",
+            "description": "Analyse at most N seconds (bounds CPU time)."
+          },
+          "auto_download": {
+            "type": "boolean",
+            "title": "Auto Download",
+            "description": "Automatically download model weights from Hugging Face if not found.",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "video_path"
+        ],
+        "title": "VideoAnalysisRequest",
+        "description": "Request payload for analyzing a video for criminal activity."
+      },
+      "VideoAnalysisResponse": {
+        "properties": {
+          "video_file": {
+            "type": "string",
+            "title": "Video File"
+          },
+          "duration_seconds": {
+            "type": "number",
+            "title": "Duration Seconds"
+          },
+          "analyzed_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Analyzed Seconds"
+          },
+          "base_timestamp": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Timestamp"
+          },
+          "timestamp_is_estimated": {
+            "type": "boolean",
+            "title": "Timestamp Is Estimated",
+            "default": false
+          },
+          "is_fallback": {
+            "type": "boolean",
+            "title": "Is Fallback",
+            "description": "True = TimeSformer weights not loaded; motion heuristic used",
+            "default": false
+          },
+          "analyzed_segments_count": {
+            "type": "integer",
+            "title": "Analyzed Segments Count"
+          },
+          "crime_detected_count": {
+            "type": "integer",
+            "title": "Crime Detected Count"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "max_crime_probability": {
+            "type": "number",
+            "title": "Max Crime Probability"
+          },
+          "model_name": {
+            "type": "string",
+            "title": "Model Name"
+          },
+          "model_f1_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model F1 Score"
+          },
+          "segments": {
+            "items": {
+              "$ref": "#/components/schemas/CrimeSegment"
+            },
+            "type": "array",
+            "title": "Segments"
+          },
+          "canonical_events": {
+            "items": {
+              "$ref": "#/components/schemas/CanonicalEvent"
+            },
+            "type": "array",
+            "title": "Canonical Events"
+          }
+        },
+        "type": "object",
+        "required": [
+          "video_file",
+          "duration_seconds",
+          "analyzed_segments_count",
+          "crime_detected_count",
+          "status",
+          "max_crime_probability",
+          "model_name",
+          "segments",
+          "canonical_events"
+        ],
+        "title": "VideoAnalysisResponse",
+        "description": "Response payload returned by the video crime detection engine."
+      }
+    }
+  }
+}

@@ -1,90 +1,87 @@
-"""Timeline API Router for Unified Multimodal Chronological Events."""
+"""Timeline API Router — per-case chronological multimodal events and incident clusters."""
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
 from typing import Any, Optional
-from fastapi import APIRouter, HTTPException, Query, status
 
-from app.services.case_service import CaseService
+from fastapi import APIRouter, HTTPException, Query
+
+from ai.correlation.timeline.builder import IncidentTimelineBuilder
+from app.api.cases import require_case
+from app.services.analysis_service import AnalysisService
 
 router = APIRouter(prefix="/timeline", tags=["Timeline"])
 
 
-@router.get(
-    "/{case_id}",
-    summary="Get unified event timeline",
-    description="Retrieves chronological multimodal events for an investigation case with optional filtering.",
-)
+def _parse_bound(value: Optional[str], name: str):
+    if value is None:
+        return None
+    parsed = IncidentTimelineBuilder.parse_timestamp(value)
+    if parsed is None:
+        raise HTTPException(status_code=422, detail=f"'{name}' is not an ISO 8601 timestamp")
+    return parsed
+
+
+@router.get("/{case_id}", summary="Get the unified event timeline of a case")
 async def get_timeline(
     case_id: str,
-    from_time: Optional[str] = Query(None, alias="from", description="Filter events on or after this ISO timestamp"),
-    to_time: Optional[str] = Query(None, alias="to", description="Filter events on or before this ISO timestamp"),
-    actor_id: Optional[str] = Query(None, description="Filter by canonical actor ID (e.g. user_007)"),
-    source_type: Optional[str] = Query(None, description="Filter by modality (cyber, video, document, badge)"),
-    page: int = Query(1, ge=1, description="Page number"),
-    page_size: int = Query(50, ge=1, le=200, description="Page size"),
+    from_time: Optional[str] = Query(None, alias="from", description="Events at or after this ISO timestamp"),
+    to_time: Optional[str] = Query(None, alias="to", description="Events at or before this ISO timestamp"),
+    actor_id: Optional[str] = Query(None, description="Canonical entity, e.g. user_007"),
+    source: Optional[str] = Query(None, description="Modality: cyber, physical, video, document"),
+    source_type: Optional[str] = Query(None, description="e.g. endpoint_log, badge_log, cctv_video, text_document"),
+    flagged_only: bool = Query(False, description="Only events flagged by a model (prediction == 1)"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(100, ge=1, le=500),
 ) -> dict[str, Any]:
-    # Verify case exists
-    case_svc = CaseService.get_instance()
-    case = case_svc.get_case(case_id)
-    if not case:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Case with ID '{case_id}' was not found.",
-        )
+    require_case(case_id)
+    timeline = AnalysisService.get_instance().read_output(case_id, "timeline")
+    if timeline is None:
+        return {"case_id": case_id, "analyzed": False, "events": [], "total": 0, "page": page,
+                "page_size": page_size, "summary": {}, "skipped_events": []}
 
-    # Load correlation timeline
-    timeline_file = Path("artifacts/correlation/timeline.json")
-    if not timeline_file.exists():
-        # Fallback to empty timeline if analysis hasn't run yet
-        return {
-            "case_id": case_id,
-            "events": [],
-            "total": 0,
-            "page": page,
-            "page_size": page_size,
-            "clusters": [],
-            "contradictions": [],
-        }
+    start, end = _parse_bound(from_time, "from"), _parse_bound(to_time, "to")
+    events: list[dict[str, Any]] = timeline.get("events", [])
 
-    try:
-        timeline_data = json.loads(timeline_file.read_text(encoding="utf-8"))
-        events: list[dict[str, Any]] = timeline_data.get("events", [])
-    except Exception as err:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to load timeline data: {err}",
-        )
+    def keep(e: dict[str, Any]) -> bool:
+        if actor_id and actor_id not in (e.get("canonical_entity"), e.get("actor_id")):
+            return False
+        if source and e.get("source") != source:
+            return False
+        if source_type and e.get("source_type") != source_type:
+            return False
+        if flagged_only and e.get("prediction") != 1:
+            return False
+        if start or end:
+            t = IncidentTimelineBuilder.parse_timestamp(e.get("timestamp"))
+            if t is None or (start and t < start) or (end and t > end):
+                return False
+        return True
 
-    # Filter events
-    filtered = events
-    if actor_id:
-        filtered = [
-            e for e in filtered
-            if (e.get("canonical_entity") == actor_id or e.get("actor_id") == actor_id)
-        ]
-    if source_type:
-        filtered = [
-            e for e in filtered
-            if (e.get("source") == source_type or e.get("source_type") == source_type)
-        ]
-    if from_time:
-        filtered = [e for e in filtered if (e.get("timestamp") or "") >= from_time]
-    if to_time:
-        filtered = [e for e in filtered if (e.get("timestamp") or "") <= to_time]
-
-    total = len(filtered)
+    filtered = [e for e in events if keep(e)]
     offset = (page - 1) * page_size
-    paginated = filtered[offset : offset + page_size]
-
     return {
         "case_id": case_id,
-        "events": paginated,
-        "total": total,
+        "analyzed": True,
+        "events": filtered[offset: offset + page_size],
+        "total": len(filtered),
         "page": page,
         "page_size": page_size,
-        "contradictions": timeline_data.get("contradictions", []),
-        "summary": timeline_data.get("summary", {}),
+        "summary": timeline.get("summary", {}),
+        "skipped_events": timeline.get("skipped_events", []),
     }
+
+
+@router.get("/{case_id}/clusters", summary="Incident clusters (temporal windows) of a case")
+async def get_clusters(
+    case_id: str,
+    cross_modal_only: bool = Query(False, description="Only clusters spanning more than one modality"),
+    include_events: bool = Query(False, description="Embed full events (otherwise only event_ids)"),
+) -> dict[str, Any]:
+    require_case(case_id)
+    clusters = AnalysisService.get_instance().read_output(case_id, "events") or []
+    if cross_modal_only:
+        clusters = [c for c in clusters if c.get("is_cross_modal")]
+    if not include_events:
+        clusters = [{k: v for k, v in c.items() if k != "events"} for c in clusters]
+    return {"case_id": case_id, "clusters": clusters, "total": len(clusters)}

@@ -1,6 +1,11 @@
 # Frontend — Sentinel
 
 > **Status**: Foundation only. The investigator dashboard has not been built yet.
+>
+> **Start here:** the backend is ready. [`docs/architecture/frontend-integration.md`](../docs/architecture/frontend-integration.md)
+> maps every screen to its endpoints and payloads, and [`docs/architecture/openapi.json`](../docs/architecture/openapi.json)
+> can generate TypeScript types. Use `VITE_API_BASE_URL=http://localhost:8000/api` and run
+> `python scripts/demo.py` to get a populated demo case.
 
 ---
 

@@ -14,7 +14,6 @@ import pandas as pd
 
 
 def aggregate_file(path: Path, kind: str, chunksize: int = 100_000) -> pd.DataFrame:
-    required = {"date", "user"}
     totals: dict[tuple[str, str], dict[str, float]] = {}
     for chunk in pd.read_csv(path, usecols=lambda c: c in {"date", "user"}, chunksize=chunksize, on_bad_lines="skip"):
         chunk["date"] = pd.to_datetime(chunk["date"], errors="coerce")

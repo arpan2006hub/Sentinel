@@ -82,6 +82,23 @@ def main() -> None:
         default=None,
         help="Compute device ('cuda', 'cpu', or auto-detected).",
     )
+    parser.add_argument(
+        "--start-time",
+        default=None,
+        help="ISO 8601 wall-clock time of the first frame (e.g. 2026-01-16T21:58:00Z). "
+             "Needed for the events to correlate with logs; defaults to 'now' (flagged as estimated).",
+    )
+    parser.add_argument(
+        "--max-seconds",
+        type=float,
+        default=None,
+        help="Only analyse the first N seconds of video (bounds CPU time; ~7s of CPU per video second).",
+    )
+    parser.add_argument(
+        "--require-model",
+        action="store_true",
+        help="Exit with an error instead of using the motion-heuristic fallback when weights are missing.",
+    )
 
     args = parser.parse_args()
 
@@ -90,12 +107,20 @@ def main() -> None:
         print(f"Error: Video file not found: {video_path}", file=sys.stderr)
         sys.exit(1)
 
-    print(f"Initializing TimeSformer Crime Detector (model: Nikeytas/timesformer-best-crime-detector)...")
+    print("Initializing TimeSformer Crime Detector (model: Nikeytas/timesformer-best-crime-detector)...")
     detector = TimesformerCrimeDetector(
         model_path=args.model_path,
         device=args.device,
         auto_download=args.auto_download,
     )
+    if not detector.is_loaded:
+        message = (
+            "TimeSformer weights are NOT loaded (run with --auto-download once, or pass --model-path). "
+        )
+        if args.require_model:
+            print(f"Error: {message}", file=sys.stderr)
+            sys.exit(2)
+        print(f"WARNING: {message}Using the motion-heuristic fallback; results are NOT TimeSformer predictions.")
 
     print(f"Running video analysis on {video_path} (window: {args.window_seconds}s, stride: {args.stride_seconds}s)...")
     results = detector.analyze_video(
@@ -105,6 +130,8 @@ def main() -> None:
         threshold=args.threshold,
         case_id=args.case_id,
         location_id=args.location_id,
+        base_timestamp=args.start_time,
+        max_seconds=args.max_seconds,
     )
 
     out_file = Path(args.output)
@@ -125,7 +152,9 @@ def main() -> None:
 
     print("\nSummary:")
     print(f"- Status: {results['status']}")
-    print(f"- Duration: {results['duration_seconds']}s")
+    print(f"- Model: {results['model_name']} (fallback={results['is_fallback']})")
+    print(f"- Duration: {results['duration_seconds']}s (analysed {results['analyzed_seconds']}s)")
+    print(f"- Video start time: {results['base_timestamp']} (estimated={results['timestamp_is_estimated']})")
     print(f"- Analyzed Segments: {results['analyzed_segments_count']}")
     print(f"- Crime Segments: {results['crime_detected_count']}")
     print(f"- Max Crime Probability: {results['max_crime_probability']}")

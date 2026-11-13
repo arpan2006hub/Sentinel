@@ -16,8 +16,8 @@
   "properties": {
     "event_id": {
       "type": "string",
-      "description": "Unique identifier for this event. Format: EVT-<number> or UUID.",
-      "pattern": "^(EVT-\\d+|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$"
+      "description": "Unique identifier for this event. Format: EVT-<MODALITY>-<TOKEN>-<number> (e.g. EVT-CYBER-1A2B3C4D-0001, EVT-CRIME-9F3A21BC) or UUID.",
+      "pattern": "^(EVT-[A-Za-z0-9-]+|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$"
     },
     "case_id": {
       "type": "string",
@@ -64,7 +64,8 @@
         "badge_log",
         "cctv_video",
         "pdf_document",
-        "text_document"
+        "text_document",
+        "video_features"
       ]
     },
     "source_id": {

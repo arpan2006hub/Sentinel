@@ -12,15 +12,13 @@ Integrates the Nikeytas/timesformer-best-crime-detector model from Hugging Face:
 from __future__ import annotations
 
 import datetime
-import json
 import logging
-import os
 import shutil
 import subprocess
 import tempfile
 import uuid
 from pathlib import Path
-from typing import Any, Generator, Sequence
+from typing import Any, Sequence
 
 try:
     import numpy as np  # type: ignore[import-untyped,import-not-found]
@@ -50,6 +48,8 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
 
 # Standard ImageNet normalization parameters (used by TimeSformer backbone)
 IMAGENET_MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
@@ -70,6 +70,7 @@ class TimesformerCrimeDetector:
         device: str | None = None,
         auto_download: bool = False,
         cache_dir: str | Path | None = None,
+        load_on_init: bool = True,
     ) -> None:
         """Initialize the crime detector.
 
@@ -77,10 +78,13 @@ class TimesformerCrimeDetector:
             model_path: Optional explicit local path to model.pth.
             device: Target device ("cuda", "cuda:0", "cpu", or None for auto-detect).
             auto_download: If True and model_path doesn't exist, downloads from Hugging Face.
-            cache_dir: Directory for storing downloaded model weights.
+            cache_dir: Directory for storing downloaded model weights
+                (default: ``<project root>/artifacts/models/timesformer``).
+            load_on_init: If False, weights are only loaded on first use
+                (``ensure_loaded``). Keeps API start-up and tests fast.
         """
         self.model_path = Path(model_path) if model_path else None
-        self.cache_dir = Path(cache_dir or "artifacts/models/timesformer")
+        self.cache_dir = Path(cache_dir) if cache_dir else PROJECT_ROOT / "artifacts" / "models" / "timesformer"
         self.auto_download = auto_download
 
         # Auto-detect best computing device
@@ -102,10 +106,28 @@ class TimesformerCrimeDetector:
             if default_local.is_file():
                 self.model_path = default_local
 
-        if self.model_path and self.model_path.is_file():
-            self.load_model(self.model_path)
-        elif self.auto_download:
-            self.download_and_load()
+        if load_on_init:
+            self.ensure_loaded()
+
+    @property
+    def weights_available(self) -> bool:
+        """True if a weights file is present locally (loaded or not)."""
+        return bool(self.model_path and self.model_path.is_file())
+
+    def ensure_loaded(self) -> bool:
+        """Load local weights (or download them if ``auto_download``) once.
+
+        Returns True when the real model is loaded; False means predictions use
+        the clearly-labelled motion heuristic fallback.
+        """
+        if self.is_loaded:
+            return True
+        if self.weights_available:
+            return self.load_model(self.model_path)  # type: ignore[arg-type]
+        if self.auto_download:
+            return self.download_and_load()
+        self.is_fallback = True
+        return False
 
     def download_and_load(self) -> bool:
         """Download model weights from Hugging Face and load into memory."""
@@ -140,8 +162,13 @@ class TimesformerCrimeDetector:
 
         try:
             logger.info("Loading TimeSformer weights from %s on device %s...", path, self.device)
-            # weights_only=False is required because the checkpoint contains an OrderedDict state dict
-            loaded = torch.load(path, map_location=self.device, weights_only=False)
+            # Prefer the safe loader (plain state dicts load fine with weights_only=True);
+            # only fall back to full unpickling for checkpoints that store a whole module.
+            try:
+                loaded = torch.load(path, map_location=self.device, weights_only=True)
+            except Exception:
+                logger.warning("Safe weights-only load failed; falling back to full unpickling of %s", path)
+                loaded = torch.load(path, map_location=self.device, weights_only=False)
 
             if isinstance(loaded, torch.nn.Module):
                 self.model = loaded
@@ -161,7 +188,7 @@ class TimesformerCrimeDetector:
                     else:
                         self.num_frames = 8
 
-                    config = TimesformerConfig(num_classes=2, num_frames=self.num_frames)
+                    config = TimesformerConfig(num_labels=2, num_frames=self.num_frames)
                     self.model = TimesformerForVideoClassification(config)
                     self.model.load_state_dict(state, strict=True)
                 except Exception as load_err:
@@ -331,7 +358,7 @@ class TimesformerCrimeDetector:
         if TORCH_AVAILABLE:
             tensor = torch.from_numpy(tensor_np).float()
             return tensor.unsqueeze(0).to(self.device)  # [1, T, C, H, W]
-        return tensor_np
+        return tensor_np[np.newaxis, ...]  # [1, T, C, H, W]
 
     def predict_clip(
         self,
@@ -353,8 +380,9 @@ class TimesformerCrimeDetector:
                 "prediction": "normal",
                 "crime_probability": 0.0,
                 "normal_probability": 1.0,
-                "confidence": 1.0,
-                "is_fallback": True,
+                "confidence": 0.0,
+                "is_fallback": self.is_fallback,
+                "error": "no frames could be decoded",
             }
 
         # Ensure frame count matches model expectation (num_frames, e.g. 8)
@@ -416,10 +444,10 @@ class TimesformerCrimeDetector:
             "crime_probability": round(crime_prob, 4),
             "normal_probability": round(1.0 - crime_prob, 4),
             "confidence": round(max(crime_prob, 1.0 - crime_prob), 4),
-            "model_name": f"{self.REPO_ID} (Heuristic Baseline Fallback)",
-            "architecture": "TimeSformer",
-            "f1_score": self.MODEL_F1_SCORE,
-            "model_f1": self.MODEL_F1_SCORE,
+            "model_name": "motion-heuristic-fallback (TimeSformer weights NOT loaded)",
+            "architecture": "frame-difference heuristic",
+            "f1_score": None,
+            "model_f1": None,
             "is_fallback": True,
         }
 
@@ -433,6 +461,7 @@ class TimesformerCrimeDetector:
         location_id: str | None = None,
         evidence_id: str | None = None,
         base_timestamp: str | None = None,
+        max_seconds: float | None = None,
     ) -> dict[str, Any]:
         """Perform temporal sliding window crime detection over a full video.
 
@@ -444,7 +473,11 @@ class TimesformerCrimeDetector:
             case_id: Investigation case identifier.
             location_id: Physical or zone location identifier.
             evidence_id: Source evidence identifier.
-            base_timestamp: ISO 8601 start timestamp for the video (defaults to UTC now).
+            base_timestamp: ISO 8601 wall-clock time of the first video frame. Required
+                for the events to line up with other evidence. If omitted, event
+                timestamps are relative to the analysis time and flagged with
+                ``timestamp_is_estimated=True`` in the result.
+            max_seconds: Only analyse the first N seconds (bounds CPU time).
 
         Returns:
             Dict containing video summary, list of segment predictions, and Sentinel Canonical Events.
@@ -457,9 +490,18 @@ class TimesformerCrimeDetector:
         duration = self._get_video_duration(video_path)
         if duration <= 0.0:
             duration = window_seconds
+        full_duration = duration
+        if max_seconds is not None and max_seconds > 0:
+            duration = min(duration, float(max_seconds))
 
+        if not self.is_loaded and not self.is_fallback:
+            self.ensure_loaded()
+
+        timestamp_is_estimated = base_timestamp is None
         start_time_iso = base_timestamp or datetime.datetime.now(datetime.timezone.utc).isoformat()
         base_dt = datetime.datetime.fromisoformat(start_time_iso.replace("Z", "+00:00"))
+        if base_dt.tzinfo is None:
+            base_dt = base_dt.replace(tzinfo=datetime.timezone.utc)
 
         segments = []
         canonical_events = []
@@ -502,6 +544,8 @@ class TimesformerCrimeDetector:
                     timestamp_end=evt_end,
                     segment=segment_data,
                     video_path=video_path,
+                    is_fallback=bool(clip_pred.get("is_fallback")),
+                    timestamp_is_estimated=timestamp_is_estimated,
                 )
                 canonical_events.append(event)
 
@@ -514,13 +558,17 @@ class TimesformerCrimeDetector:
 
         return {
             "video_file": str(video_path),
-            "duration_seconds": round(duration, 2),
+            "duration_seconds": round(full_duration, 2),
+            "analyzed_seconds": round(duration, 2),
+            "base_timestamp": base_dt.isoformat(),
+            "timestamp_is_estimated": timestamp_is_estimated,
+            "is_fallback": self.is_fallback or not self.is_loaded,
             "analyzed_segments_count": len(segments),
             "crime_detected_count": len(crime_segments),
             "status": overall_status,
             "max_crime_probability": round(max_crime_prob, 4),
-            "model_name": self.REPO_ID,
-            "model_f1_score": self.MODEL_F1_SCORE,
+            "model_name": self.REPO_ID if self.is_loaded else "motion-heuristic-fallback (TimeSformer weights NOT loaded)",
+            "model_f1_score": self.MODEL_F1_SCORE if self.is_loaded else None,
             "segments": segments,
             "canonical_events": canonical_events,
         }
@@ -561,6 +609,8 @@ class TimesformerCrimeDetector:
         timestamp_end: str,
         segment: dict[str, Any],
         video_path: Path,
+        is_fallback: bool = False,
+        timestamp_is_estimated: bool = False,
     ) -> dict[str, Any]:
         """Construct a canonical event matching docs/architecture/event-schema.md."""
         return {
@@ -576,9 +626,12 @@ class TimesformerCrimeDetector:
             "source_id": evidence_id,
             "confidence": segment["confidence"],
             "metadata": {
-                "model": self.REPO_ID,
-                "architecture": "TimeSformer",
-                "f1_score": self.MODEL_F1_SCORE,
+                "model": "motion-heuristic-fallback" if is_fallback else self.REPO_ID,
+                "architecture": "frame-difference heuristic" if is_fallback else "TimeSformer",
+                "f1_score": None if is_fallback else self.MODEL_F1_SCORE,
+                "f1_score_source": "third-party model card (unverified by the Sentinel team)",
+                "is_fallback": is_fallback,
+                "timestamp_is_estimated": timestamp_is_estimated,
                 "crime_probability": segment["crime_probability"],
                 "start_seconds": segment["start_seconds"],
                 "end_seconds": segment["end_seconds"],
