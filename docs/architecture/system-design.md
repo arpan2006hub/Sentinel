@@ -1,12 +1,12 @@
 # System Design — Sentinel
 
-> **Status**: Planned architecture. Not yet implemented.
+> **Status**: Current local-first implementation with SQLite, in-process analysis tasks and a React dashboard. PostgreSQL, Redis/Celery, object storage and MLflow sections are future deployment targets.
 
 ---
 
 ## Overview
 
-This document describes the planned system architecture for Sentinel, a local-first multimodal AI system for insider-threat investigation assistance.
+This document describes Sentinel's implemented local-first architecture and its production migration targets.
 
 ---
 
@@ -105,7 +105,7 @@ This document describes the planned system architecture for Sentinel, a local-fi
 
 The investigator-facing dashboard. Built with React + TypeScript.
 
-Planned views:
+Implemented views:
 - **Case Dashboard** — list and manage investigation cases
 - **Evidence Explorer** — browse, upload, and inspect evidence
 - **Timeline** — unified chronological event view
@@ -185,31 +185,29 @@ Evidence File Uploaded
          └── Flag if mismatch → integrity alert
 ```
 
-This mechanism is **planned** and not yet implemented.
+The current implementation uses SQLite to store the evidence hash and an append-only hash-chained audit log. Downloads and verification endpoints re-hash or validate the stored file and report mismatches.
 
 ---
 
 ## Data Flow
 
 ```
-1. Investigator uploads evidence file via UI
-2. Backend receives file, computes SHA-256 hash
-3. Evidence metadata + hash stored in PostgreSQL
-4. File stored in local evidence store
-5. Audit record created
-6. Analysis job queued to Redis
-7. AI worker picks up job
-8. Modality AI pipeline processes evidence
-9. Extracted events written to events table (normalised)
-10. Correlation engine runs across all events for the case
-11. Anomalies, timeline, graph updated
-12. Investigator views results via dashboard
+1. Investigator uploads evidence file via the dashboard
+2. Backend streams it to the local evidence store and computes SHA-256
+3. Evidence metadata and hash are stored in SQLite
+4. A hash-chained audit record is appended
+5. The investigator starts an analysis run
+6. FastAPI executes the run as an in-process background task
+7. Modality processors emit canonical events
+8. The correlation engine processes events for the case
+9. Timeline, anomalies, graph and suspect results are stored under `artifacts/cases/<case_id>/`
+10. Investigator views results via the dashboard
 13. Investigator makes investigation decisions
 ```
 
 ---
 
-## Security Considerations (Planned)
+## Security Considerations
 
 - Secrets managed via environment variables (`.env`)
 - Authentication and authorisation to be implemented

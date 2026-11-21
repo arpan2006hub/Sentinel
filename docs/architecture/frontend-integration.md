@@ -1,7 +1,7 @@
 # Frontend Integration Guide
 
-This guide is for the team member building the investigator dashboard (`frontend/`).
-The backend is ready: every screen below has an endpoint. The machine-readable
+This guide documents the implemented investigator dashboard in `frontend/`.
+The backend is ready: every screen below is backed by an endpoint. The machine-readable
 contract is in [`openapi.json`](openapi.json), regenerated with `python scripts/export_openapi.py`.
 The live Swagger UI is at <http://localhost:8000/docs>.
 

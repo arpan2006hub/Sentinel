@@ -1,6 +1,6 @@
 # Research Methodology — Sentinel
 
-> **Status**: Planned methodology. No experiments have been conducted yet.
+> **Status**: Research methodology. Synthetic end-to-end validation is implemented; full real-dataset ablation and external evaluation remain future work.
 
 ---
 

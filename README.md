@@ -8,27 +8,6 @@ Sentinel takes in heterogeneous evidence: endpoint/cyber activity, physical badg
 
 ---
 
-## Implementation status (verified 2026-11-14)
-
-| Component | Status | Notes |
-|---|---|---|
-| **Case & Evidence API** | 🟢 Ready | Case CRUD, multipart upload with size limit, SHA-256 fingerprint, tamper detection, **hash-chained audit log** (with chain verification), audited download. SQLite store. |
-| **Analysis orchestration** | 🟢 Ready | `POST /api/analysis/start` processes every evidence item of a case in the background and correlates it. Results are stored **per case**. |
-| **Cross-modal correlation engine** | 🟢 Ready | Entity resolution, temporal clustering, 4 contradiction rules, Cytoscape graph, explainable suspect ranking (`reasons`, `evidence_ids`). |
-| **Video AI (TimeSformer)** | 🟢 Ready (inference only) | Pretrained `Nikeytas/timesformer-best-crime-detector` (no training). Weights load strictly; CPU inference verified. Supports a start time for aligning with other evidence, a bounded `max_seconds`, and a clearly-labelled fallback. The 88.68% F1 is a **third-party, unverified** claim. |
-| **Cyber AI** | 🟢 Demo / 🟡 CERT | Isolation Forest scorer used live (saved model or fitted on the evidence file). CERT r4.2 Random Forest pipeline exists (`CYBER_MODEL_REPORT.md`), but its model file must be retrained offline (see *Remaining work*). |
-| **Document AI baseline** | 🟢 Demo | TF-IDF + logistic regression (trained on the synthetic corpus in seconds) or a transparent keyword heuristic. Entity, time and zone extraction. Supports `.txt/.json/.jsonl`, text PDFs, and optional Tesseract OCR for scanned PDF pages. |
-| **Synthetic demo scenario** | 🟢 Ready | Deterministic "Night Copy" insider scenario across all 4 modalities, with ground truth and benign hard negatives. |
-| **One-command demo** | 🟢 Ready | `python scripts/demo.py` builds an analysed demo case in about 15 s on a laptop CPU. |
-| **Tests / lint** | 🟢 42 tests pass, ruff clean | No test loads the 485 MB video model. |
-| **Docker (backend)** | 🟢 Built and smoke-tested | `backend/Dockerfile` (CPU torch, non-root, ~3 GB) plus a compose `app` profile. Verified 2026-11-14: `/health` healthy, `scripts/demo.py` runs inside the container, all case endpoints return data. Video weights are not baked in (download into the `/data` volume). |
-| **Investigator dashboard (frontend)** | 🔴 Not started | Backend contract ready: [`docs/architecture/frontend-integration.md`](docs/architecture/frontend-integration.md), [`openapi.json`](docs/architecture/openapi.json). |
-| PostgreSQL / Redis / Celery / auth | 📋 Planned | SQLite + in-process background tasks are used for the local-first build. |
-
-Open tasks and the jobs to delegate are listed in [`docs/STATUS.md`](docs/STATUS.md).
-
----
-
 ## Quickstart (Windows / macOS / Linux, CPU only)
 
 **Prerequisites:** Python **3.11–3.14**. Docker and Node.js 18+ are optional (Docker for the container, Node for frontend work).
@@ -101,12 +80,24 @@ python -m ruff check ai backend scripts tests
 
 `make <target>` wraps all of these (`make help`; needs GNU make / Git Bash on Windows).
 
+### 6. Run the investigator dashboard
+
+With the API running, start the React/Vite frontend in a second terminal:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open <http://localhost:5173>. Copy `frontend/.env.example` to `frontend/.env` if the API is not at `http://localhost:8000/api`.
+
 ---
 
 ## Architecture
 
 ```
-React dashboard (frontend/, not started)  ──REST /api──►  FastAPI (backend/app)
+React investigator dashboard (frontend/)  ──REST /api──►  FastAPI (backend/app)
                                                             │
      cases / evidence (SHA-256, hash-chained audit) ◄──── SQLite + local evidence store
                                                             │  POST /api/analysis/start
@@ -154,6 +145,7 @@ ai/cyber/           CERT r4.2 preprocessing, labelling, Isolation Forest / Rando
 ai/video/           TimeSformer detector + CLI, motion-feature baselines
 ai/documents/       document baseline trainer
 backend/app/        FastAPI app: api/ routers, services/, schemas/, config.py, db.py; Dockerfile
+frontend/           React/Vite investigator dashboard (cases, evidence, timeline, anomalies, graph, leads)
 scripts/            demo.py, run_all.py, generate_demo_data.py, export_openapi.py, seed_database.py
 tests/              pytest suite (isolated temp storage)
 docs/               architecture (incl. frontend-integration.md, openapi.json), research, ADRs, STATUS.md
