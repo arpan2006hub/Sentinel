@@ -50,8 +50,6 @@ build/
 # -----------------------------------------------------------------------------
 # Environment / Secrets
 # -----------------------------------------------------------------------------
-.env
-.env.local
 .env.development.local
 .env.test.local
 .env.production.local
@@ -66,7 +64,6 @@ credentials/
 # -----------------------------------------------------------------------------
 # IDE / OS
 # -----------------------------------------------------------------------------
-.vscode/
 .idea/
 *.sublime-project
 *.sublime-workspace
@@ -170,3 +167,4 @@ docker-compose.override.yml
 
 # Local evidence store (SQLite DB + uploaded evidence) — never commit
 local-evidence-store/
+config.bat

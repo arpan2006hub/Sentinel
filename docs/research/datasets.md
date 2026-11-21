@@ -1,6 +1,6 @@
 # Datasets — Sentinel Research
 
-> **Status**: Planned dataset strategy. No datasets have been downloaded or committed to this repository.
+> **Status**: Dataset strategy for future evaluation. No private or real datasets are committed to this repository; the built-in demo uses synthetic generated evidence.
 
 ---
 

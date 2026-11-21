@@ -5,8 +5,8 @@
   "description": "Minimal Sentinel investigator dashboard built with React, TypeScript and shadcn/ui components",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "dev": "node init && vite",
+    "build": "node init && tsc --noEmit && vite build",
     "preview": "vite preview",
     "lint": "eslint . --max-warnings 0",
     "type-check": "tsc --noEmit"

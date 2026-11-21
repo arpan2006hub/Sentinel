@@ -1,12 +1,12 @@
 # Database Schema — Sentinel
 
-> **Status**: Planned conceptual schema. No database models are implemented yet.
+> **Status**: Conceptual target schema. The implemented persistence layer currently uses SQLite; PostgreSQL/Alembic remains a future migration.
 
 ---
 
 ## Overview
 
-Sentinel uses **PostgreSQL** as its primary relational database for all structured metadata, normalised events, entity relationships, anomaly records, and audit logs.
+The production target is **PostgreSQL** for structured metadata, normalised events, entity relationships, anomaly records and audit logs. The current local-first implementation uses SQLite for case, evidence, audit and analysis-run metadata.
 
 **PostgreSQL does not store raw evidence files.** Evidence files (video, PDFs, images, raw logs) are stored in local filesystem or object storage. PostgreSQL holds the metadata, including a SHA-256 hash for integrity verification.
 
@@ -232,14 +232,14 @@ evidence        events ──────────────── anomalie
 ## Storage Separation
 
 ```
-PostgreSQL                           Local / Object Storage
-─────────────────────────────────    ──────────────────────────────
-evidence.file_hash  ←──────────────→  SHA-256 of /evidence-store/...
-evidence.file_path  ←──────────────→  Actual file location
+SQLite / PostgreSQL target             Local evidence store
+─────────────────────────────────      ──────────────────────────────
+evidence.file_hash  ←────────────────→  SHA-256 of stored file
+evidence.file_path  ←────────────────→  Actual file location
 ```
 
-The `file_hash` in PostgreSQL is the integrity anchor. If the file is re-hashed and the value differs, an integrity alert should be raised.
+The `file_hash` is the integrity anchor. If the file is re-hashed and the value differs, verification reports tampering.
 
 ---
 
-*Database models (SQLAlchemy) and migrations (Alembic) will be implemented in the `backend/app/models/` directory.*
+*The current implementation is in `backend/app/db.py` and the service modules. SQLAlchemy models and Alembic migrations are future work.*

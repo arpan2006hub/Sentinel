@@ -1,6 +1,6 @@
 # Evaluation Plan — Sentinel
 
-> **Status**: Planned evaluation process. No evaluation has been conducted yet.
+> **Status**: Synthetic demo validation is implemented. Real-dataset ablation, external TimeSformer evaluation and independent reproducibility studies remain future work.
 
 ---
 
