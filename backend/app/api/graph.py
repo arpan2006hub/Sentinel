@@ -2,54 +2,34 @@
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
-from typing import Any, Optional
-from fastapi import APIRouter, HTTPException, Query, status
+from typing import Any, Literal
 
-from app.services.case_service import CaseService
+from fastapi import APIRouter, Query
+
+from app.api.cases import require_case
+from app.services.analysis_service import AnalysisService
 
 router = APIRouter(prefix="/graph", tags=["Graph"])
 
 
 @router.get(
     "/{case_id}",
-    summary="Get entity relationship graph",
-    description="Retrieves the multi-modal evidence graph (nodes and directed edges) for visualization.",
+    summary="Get the entity/evidence relationship graph of a case",
+    description=(
+        "`format=standard` returns {nodes, edges, metrics}; `format=cytoscape` returns "
+        "{elements: {nodes, edges}} ready for Cytoscape.js. Node types: user, event, location, document, "
+        "object, evidence, anomaly."
+    ),
 )
 async def get_evidence_graph(
     case_id: str,
-    format: str = Query("standard", description="Graph representation format: 'standard' or 'cytoscape'"),
+    format: Literal["standard", "cytoscape"] = Query("standard"),
 ) -> dict[str, Any]:
-    # Verify case exists
-    case_svc = CaseService.get_instance()
-    case = case_svc.get_case(case_id)
-    if not case:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Case with ID '{case_id}' was not found.",
-        )
-
-    if format.lower() == "cytoscape":
-        graph_file = Path("artifacts/correlation/cytoscape_graph.json")
-    else:
-        graph_file = Path("artifacts/correlation/evidence_graph.json")
-
-    if not graph_file.exists():
-        return {
-            "case_id": case_id,
-            "nodes": [],
-            "edges": [],
-            "metrics": {"total_nodes": 0, "total_edges": 0},
-        }
-
-    try:
-        data = json.loads(graph_file.read_text(encoding="utf-8"))
-        if format.lower() == "cytoscape":
-            return {"case_id": case_id, **data}
-        return {"case_id": case_id, **data}
-    except Exception as err:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to read graph data: {err}",
-        )
+    require_case(case_id)
+    service = AnalysisService.get_instance()
+    data = service.read_output(case_id, "cytoscape" if format == "cytoscape" else "graph")
+    if data is None:
+        empty = ({"elements": {"nodes": [], "edges": []}} if format == "cytoscape"
+                 else {"nodes": [], "edges": [], "metrics": {"total_nodes": 0, "total_edges": 0}})
+        return {"case_id": case_id, "analyzed": False, **empty}
+    return {"case_id": case_id, "analyzed": True, **data}

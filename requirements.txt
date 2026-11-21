@@ -1,0 +1,7 @@
+# Sentinel — install everything needed to run the demo, the API and the tests.
+#     python -m venv .venv
+#     .venv\Scripts\activate            (Windows)   |   source .venv/bin/activate
+#     pip install -r requirements.txt
+-r backend/requirements.txt
+-r requirements-ml.txt
+-r requirements-dev.txt

@@ -16,8 +16,8 @@ if str(PROJECT_ROOT) not in sys.path:
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
-from backend.app.schemas.cases import CaseCreate
-from backend.app.services.case_service import CaseService
+from app.schemas.cases import CaseCreate  # noqa: E402
+from app.services.case_service import CaseService  # noqa: E402
 
 
 def main() -> None:
@@ -40,7 +40,6 @@ def main() -> None:
     )
 
     service = CaseService.get_instance()
-    # pyrefly: ignore[bad-argument-type]
     created = service.create_case(case_in)
 
     print("\n[+] Investigation Case Created Successfully:")

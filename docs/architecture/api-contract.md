@@ -1,6 +1,7 @@
 # API Contract — Sentinel
 
-> **Status**: Planned API. No endpoints are implemented beyond `/` and `/health`.
+> **Note (2026-11-13):** the implemented, authoritative contract is the generated [`openapi.json`](openapi.json) and the [frontend integration guide](frontend-integration.md). All routes are served under `/api`. This document is the original design and may differ in details.
+
 
 ---
 

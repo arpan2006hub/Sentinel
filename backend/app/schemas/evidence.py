@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any, Optional
+
 from pydantic import BaseModel, Field
 
 
@@ -13,8 +14,8 @@ class EvidenceResponse(BaseModel):
     file_name: str
     file_hash: str = Field(description="SHA-256 integrity hash formatted as sha256:...")
     file_size_bytes: int
-    source_type: str = Field(description="endpoint_log, cctv_video, auth_log, pdf_document, badge_log, etc.")
-    processing_status: str = Field(default="pending", description="pending, processing, processed, error")
+    source_type: str = Field(description="See GET /api/evidence/source-types")
+    processing_status: str = Field(default="pending", description="pending, processing, processed, skipped, error")
     ingested_at: str
     metadata: dict[str, Any] = Field(default_factory=dict)
 
@@ -37,12 +38,30 @@ class EvidenceVerifyResponse(BaseModel):
 
 
 class EvidenceAuditRecord(BaseModel):
-    """Append-only audit trail entry for evidence chain of custody."""
+    """Append-only, hash-chained audit trail entry for evidence chain of custody."""
     audit_id: str
     evidence_id: str
     case_id: str
-    action: str = Field(description="ingested, verified, accessed, analysis_started, deleted")
+    action: str = Field(description="ingested, verified, accessed, analyzed, deleted")
     actor: str = Field(default="system")
     timestamp: str
     details: dict[str, Any] = Field(default_factory=dict)
+    prev_hash: Optional[str] = None
+    record_hash: Optional[str] = None
 
+
+class AuditChainVerifyResponse(BaseModel):
+    """Result of recomputing the audit hash chain of one evidence item."""
+    evidence_id: str
+    valid: bool
+    records: int
+    legacy_unverifiable: int = 0
+    broken_at_index: Optional[int] = None
+    broken_audit_id: Optional[str] = None
+    reason: Optional[str] = None
+
+
+class SourceTypeInfo(BaseModel):
+    source_type: str
+    processor: str
+    description: str

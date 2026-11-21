@@ -70,7 +70,7 @@ Physical AI   ─┘                            Timeline Construction
 
 ### Responsibilities
 
-- OCR for scanned PDFs and images
+- OCR for scanned PDF pages using the optional pypdfium2 + Tesseract adapter (install `requirements-ocr.txt` and the Tesseract executable separately)
 - Entity extraction (names, dates, locations, IDs)
 - Event/timeline extraction from narrative text
 - Contradiction detection between document claims and other evidence
@@ -80,7 +80,7 @@ Physical AI   ─┘                            Timeline Construction
 
 | Subdirectory | Purpose |
 |---|---|
-| `ocr/` | Text extraction from PDFs and images (Tesseract, PaddleOCR, etc.) |
+| `ocr/` | Optional Tesseract OCR for scanned PDF pages; image files and alternative OCR engines remain future work |
 | `extraction/` | NER, relation extraction, date/time/location parsing, event claim extraction |
 | `contradiction/` | Cross-reference document claims against canonical events; surface inconsistencies |
 

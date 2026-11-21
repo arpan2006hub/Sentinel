@@ -1,0 +1,5 @@
+# Optional scanned-PDF OCR support.
+# These are Python bindings/rendering libraries; install the Tesseract OCR
+# executable and its language data separately and make it available on PATH.
+pypdfium2>=4.30,<6.0
+pytesseract>=0.3.13,<0.4

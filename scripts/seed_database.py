@@ -1,37 +1,34 @@
 #!/usr/bin/env python3
-"""
-seed_database.py — Placeholder
+"""seed_database.py — Initialise the Sentinel SQLite database (idempotent).
 
-This script will eventually:
-1. Connect to PostgreSQL (using DATABASE_URL from environment)
-2. Run Alembic migrations to create tables
-3. Optionally seed with initial data (admin user, default case, etc.)
+Creates/migrates all tables in ``$STORAGE_PATH/sentinel.db``. Use
+``scripts/demo.py`` to additionally create a populated demo case.
 
-Currently NOT IMPLEMENTED.
-
-Usage (future):
-    python scripts/seed_database.py
-
-Requirements:
-    - psycopg2
-    - alembic
-    - SQLAlchemy models defined in backend/app/models/
+PostgreSQL + Alembic are planned (see docs/decisions/ADR-003-storage.md); the
+current local-first build uses SQLite.
 """
 
-import os
+from __future__ import annotations
+
 import sys
+from pathlib import Path
 
-def main():
-    print("[seed_database] NOT YET IMPLEMENTED")
-    print("[seed_database] This script will:")
-    print("  1. Run database migrations (Alembic)")
-    print("  2. Seed initial data if needed")
-    print("")
-    print("Required:")
-    print("  - DATABASE_URL environment variable")
-    print("  - SQLAlchemy models in backend/app/models/")
-    print("  - Alembic configuration")
-    sys.exit(1)
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+for path in (PROJECT_ROOT, PROJECT_ROOT / "backend"):
+    if str(path) not in sys.path:
+        sys.path.insert(0, str(path))
+
+from app.config import get_settings  # noqa: E402
+from app.db import connect  # noqa: E402
+
+
+def main() -> None:
+    settings = get_settings()
+    with connect(settings.db_path) as conn:
+        tables = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")]
+    print(f"[seed_database] Database ready: {settings.db_path}")
+    print(f"[seed_database] Tables: {', '.join(tables)}")
+
 
 if __name__ == "__main__":
     main()

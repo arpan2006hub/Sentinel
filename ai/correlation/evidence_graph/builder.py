@@ -9,7 +9,7 @@ from typing import Any, Optional
 
 class EvidenceGraphBuilder:
     """Builds, analyzes, and exports a multimodal evidence relationship graph.
-    
+
     Generates entity nodes (users, devices, locations, documents), event nodes,
     and semantic relationships (e.g., LOGGED_IN, ACCESSED, DETECTED_AT, CONTRADICTS).
     Outputs Cytoscape.js and React Flow compatible representations for dashboard visualization.
@@ -133,12 +133,33 @@ class EvidenceGraphBuilder:
                 )
                 self.add_edge(source=ev_id, target=obj_id, relationship="TARGETS", weight=1.0)
 
-        # 6. Add contradiction edges
+            # 6. Source evidence node (traceability back to the ingested file)
+            evidence_id = ev.get("source_id")
+            if evidence_id:
+                self.add_node(
+                    node_id=f"EVIDENCE:{evidence_id}",
+                    label=str(evidence_id),
+                    node_type="evidence",
+                    properties={"evidence_id": evidence_id, "source_type": ev.get("source_type")},
+                )
+                self.add_edge(source=ev_id, target=f"EVIDENCE:{evidence_id}", relationship="EXTRACTED_FROM")
+
+        # 7. Contradiction / anomaly nodes and edges
         if contradictions:
             for contra in contradictions:
                 contra_type = contra.get("type", "contradiction")
-                c_events = contra.get("event_ids", [])
-                if len(c_events) >= 2 and c_events[0] in self.nodes and c_events[1] in self.nodes:
+                c_events = [e for e in contra.get("event_ids", []) if e in self.nodes]
+                anomaly_id = contra.get("anomaly_id")
+                if anomaly_id:
+                    self.add_node(
+                        node_id=anomaly_id,
+                        label=contra_type,
+                        node_type="anomaly",
+                        properties={"severity": contra.get("severity"), "description": contra.get("description")},
+                    )
+                    for event_id in c_events:
+                        self.add_edge(source=anomaly_id, target=event_id, relationship="FLAGS", weight=2.0)
+                if len(c_events) >= 2:
                     self.add_edge(
                         source=c_events[0],
                         target=c_events[1],

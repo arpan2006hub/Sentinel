@@ -8,7 +8,7 @@ from typing import Any, Optional
 
 class EntityResolver:
     """Disambiguates and unifies cross-modal entity references into canonical IDs.
-    
+
     Resolves usernames, emails, physical badge numbers, workstation hostnames,
     and video actor tracks to standardized investigation entities.
     """
@@ -46,7 +46,7 @@ class EntityResolver:
 
     def resolve(self, raw_identifier: str | None) -> tuple[str, float]:
         """Resolve a raw entity reference into (canonical_id, confidence).
-        
+
         Confidence:
           1.0 - Exact match in registered entity/alias table
           0.9 - Deterministic domain/email prefix normalization

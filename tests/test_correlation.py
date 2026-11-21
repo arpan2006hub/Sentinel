@@ -10,7 +10,6 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-import pytest
 
 from ai.correlation.correlator import MultimodalCorrelator
 from ai.correlation.entity_resolution.resolver import EntityResolver
@@ -100,6 +99,7 @@ class TestIncidentTimelineBuilder:
                 "timestamp": "2026-01-15T10:01:00Z",  # 1 min later
                 "canonical_entity": "user_002",
                 "location_id": "ZONE-LONDON-BRANCH",
+                "metadata": {"minimum_travel_minutes_from_previous_location": 480.0},
             },
         ]
         timeline = builder.build_timeline(events)
@@ -107,6 +107,33 @@ class TestIncidentTimelineBuilder:
         assert len(contradictions) >= 1
         assert any(c["type"] == "impossible_travel" for c in contradictions)
         assert any("user_002" in c["description"] for c in contradictions)
+
+    def test_impossible_travel_uses_only_the_immediately_previous_location(self) -> None:
+        builder = IncidentTimelineBuilder(window_minutes=60)
+        timeline = builder.build_timeline([
+            {"event_id": "EVT-A", "timestamp": "2026-01-15T10:00:00Z",
+             "canonical_entity": "user_002", "location_id": "ZONE-A"},
+            {"event_id": "EVT-B", "timestamp": "2026-01-15T10:01:00Z",
+             "canonical_entity": "user_002", "location_id": "ZONE-B",
+             "metadata": {"minimum_travel_minutes_from_previous_location": 8.0}},
+            {"event_id": "EVT-C", "timestamp": "2026-01-15T10:02:00Z",
+             "canonical_entity": "user_002", "location_id": "ZONE-C",
+             "metadata": {"minimum_travel_minutes_from_previous_location": 8.0}},
+        ])
+        alerts = [c for c in timeline["contradictions"] if c["type"] == "impossible_travel"]
+        assert len(alerts) == 2
+        assert alerts[0]["event_ids"] == ["EVT-A", "EVT-B"]
+        assert alerts[1]["event_ids"] == ["EVT-B", "EVT-C"]
+
+    def test_different_zone_names_without_route_metadata_are_not_impossible_travel(self) -> None:
+        builder = IncidentTimelineBuilder(window_minutes=60)
+        timeline = builder.build_timeline([
+            {"event_id": "EVT-LOC-A", "timestamp": "2026-01-15T10:00:00Z",
+             "canonical_entity": "user_002", "location_id": "ZONE-NEW-YORK-HQ"},
+            {"event_id": "EVT-LOC-B", "timestamp": "2026-01-15T10:01:00Z",
+             "canonical_entity": "user_002", "location_id": "ZONE-LONDON-BRANCH"},
+        ])
+        assert not any(c["type"] == "impossible_travel" for c in timeline["contradictions"])
 
     def test_uncredentialed_presence_contradiction(self) -> None:
         builder = IncidentTimelineBuilder(window_minutes=60)
@@ -176,6 +203,9 @@ class TestMultimodalCorrelator:
                 "event_id": "EVT-C1",
                 "timestamp": "2026-01-15T09:00:00Z",
                 "source": "cyber",
+                "source_type": "endpoint_log",
+                "source_id": "evidence-cyber",
+                "action": "anomalous_activity",
                 "actor_id": "CORP\\user_005",
                 "kind": "mass_download",
                 "score": 0.88,
@@ -184,6 +214,9 @@ class TestMultimodalCorrelator:
                 "event_id": "EVT-V1",
                 "timestamp": "2026-01-15T09:15:00Z",
                 "source": "video",
+                "source_type": "cctv_video",
+                "source_id": "evidence-video",
+                "action": "crime_detected",
                 "actor_id": "actor_user_005",
                 "location_id": "ZONE-SERVER-ROOM",
                 "kind": "crime_detected",
@@ -193,6 +226,9 @@ class TestMultimodalCorrelator:
                 "event_id": "EVT-D1",
                 "timestamp": "2026-01-15T09:30:00Z",
                 "source": "document",
+                "source_type": "text_document",
+                "source_id": "evidence-document",
+                "action": "document_claim",
                 "actor_id": "user_005",
                 "document_id": "DOC-INCIDENT-LOG",
                 "kind": "claim",
@@ -216,3 +252,117 @@ class TestMultimodalCorrelator:
         assert (tmp_path / "cytoscape_graph.json").exists()
         assert (tmp_path / "suspect_ranking.json").exists()
 
+
+
+class TestCorrelationRegressions:
+    """Regression tests for bugs fixed during the demo-readiness pass."""
+
+    def test_unparseable_timestamp_is_skipped_not_replaced_with_now(self) -> None:
+        builder = IncidentTimelineBuilder()
+        timeline = builder.build_timeline([
+            {"event_id": "EVT-OK", "timestamp": "2026-01-15T10:00:00Z", "actor_id": "user_001"},
+            {"event_id": "EVT-BAD", "timestamp": "yesterday-ish", "actor_id": "user_001"},
+            {"event_id": "EVT-NONE", "actor_id": "user_001"},
+        ])
+        assert [e["event_id"] for e in timeline["events"]] == ["EVT-OK"]
+        assert {s["event_id"] for s in timeline["skipped_events"]} == {"EVT-BAD", "EVT-NONE"}
+
+    def test_nearby_events_from_unrelated_people_and_locations_stay_separate(self) -> None:
+        timeline = IncidentTimelineBuilder(window_minutes=60).build_timeline([
+            {"event_id": "EVT-A", "timestamp": "2026-01-15T10:00:00Z", "actor_id": "user_001",
+             "location_id": "ZONE-OFFICE-A"},
+            {"event_id": "EVT-B", "timestamp": "2026-01-15T10:01:00Z", "actor_id": "user_002",
+             "location_id": "ZONE-OFFICE-B"},
+        ])
+        assert len(timeline["clusters"]) == 2
+
+    def test_badge_at_other_location_does_not_authorise_presence(self) -> None:
+        builder = IncidentTimelineBuilder()
+        timeline = builder.build_timeline([
+            {"event_id": "EVT-V", "timestamp": "2026-01-15T14:00:00Z", "source": "video",
+             "source_type": "cctv_video", "action": "crime_detected", "location_id": "ZONE-RESTRICTED-VAULT"},
+            {"event_id": "EVT-B", "timestamp": "2026-01-15T14:05:00Z", "source_type": "badge_log",
+             "action": "badge_swipe", "location_id": "ZONE-LOBBY"},
+        ])
+        assert any(c["type"] == "uncredentialed_presence" for c in timeline["contradictions"])
+
+    def test_badge_at_same_location_authorises_presence(self) -> None:
+        builder = IncidentTimelineBuilder()
+        timeline = builder.build_timeline([
+            {"event_id": "EVT-V", "timestamp": "2026-01-15T14:00:00Z", "source": "video",
+             "source_type": "cctv_video", "action": "crime_detected", "location_id": "ZONE-RESTRICTED-VAULT"},
+            {"event_id": "EVT-B", "timestamp": "2026-01-15T13:55:00Z", "source_type": "badge_log",
+             "action": "badge_swipe", "location_id": "ZONE-RESTRICTED-VAULT"},
+        ])
+        assert not any(c["type"] == "uncredentialed_presence" for c in timeline["contradictions"])
+
+    def test_low_score_unrestricted_video_is_not_uncredentialed(self) -> None:
+        builder = IncidentTimelineBuilder()
+        timeline = builder.build_timeline([
+            {"event_id": "EVT-V", "timestamp": "2026-01-15T14:00:00Z", "source": "video",
+             "kind": "video_motion_anomaly", "location_id": "ZONE-LOBBY", "score": 0.95},
+            {"event_id": "EVT-B", "timestamp": "2026-01-15T09:00:00Z", "source_type": "badge_log",
+             "action": "badge_swipe", "location_id": "ZONE-LOBBY"},
+        ])
+        assert not any(c["type"] == "uncredentialed_presence" for c in timeline["contradictions"])
+
+    def test_events_jsonl_is_real_json_lines(self, tmp_path) -> None:
+        import json
+
+        correlator = MultimodalCorrelator()
+        correlator.run_correlation([
+            {"event_id": "EVT-1", "timestamp": "2026-01-15T09:00:00Z", "source": "cyber",
+             "source_type": "endpoint_log", "source_id": "evidence-1", "action": "anomalous_activity",
+             "actor_id": "user_001", "score": 0.9},
+            {"event_id": "EVT-2", "timestamp": "2026-01-16T09:00:00Z", "source": "cyber",
+             "source_type": "endpoint_log", "source_id": "evidence-2", "action": "anomalous_activity",
+             "actor_id": "user_002", "score": 0.9},
+        ], output_dir=tmp_path)
+        lines = (tmp_path / "events.jsonl").read_text(encoding="utf-8").splitlines()
+        assert len(lines) == 2 and all(json.loads(line)["cluster_id"] for line in lines)
+        contradictions = json.loads((tmp_path / "contradictions.json").read_text(encoding="utf-8"))
+        assert all("anomaly_id" in c for c in contradictions)
+
+
+def test_video_without_location_is_not_uncredentialed_presence():
+    events = [
+        {"event_id": "EVT-B1", "timestamp": "2026-01-16T21:00:00Z", "actor_id": "user_001",
+         "action": "badge_swipe", "location_id": "ZONE-A", "source": "physical", "source_type": "badge_log"},
+        {"event_id": "EVT-V1", "timestamp": "2026-01-16T21:05:00Z", "actor_id": "unknown",
+         "action": "crime_detected", "source": "video", "source_type": "cctv_video", "confidence": 0.9},
+    ]
+    result = IncidentTimelineBuilder().build_timeline(events)
+    assert not [c for c in result["contradictions"] if c["type"] == "uncredentialed_presence"]
+
+
+def test_rank_suspects_tolerates_non_numeric_scores():
+    events = [
+        {"canonical_entity": "user_001", "score": "high", "source": "document", "event_id": "EVT-1"},
+        {"canonical_entity": "user_001", "score": 0.9, "source": "cyber", "event_id": "EVT-2"},
+    ]
+    ranking = MultimodalCorrelator._rank_suspects(events, [])
+    assert ranking[0]["entity"] == "user_001"
+
+
+def test_correlator_excludes_invalid_canonical_events_and_reports_them(tmp_path):
+    result = MultimodalCorrelator().run_correlation([
+        {"event_id": "EVT-VALID", "timestamp": "2026-01-15T10:00:00Z", "source": "cyber",
+         "source_type": "endpoint_log", "source_id": "evidence-1", "action": "anomalous_activity",
+         "actor_id": "user_001", "score": 0.9},
+        {"event_id": "EVT-INVALID", "timestamp": "2026-01-15T10:01:00Z", "source": "cyber",
+         "source_type": "endpoint_log", "action": "anomalous_activity", "actor_id": "user_001"},
+    ], output_dir=tmp_path)
+    assert result["summary"]["input_events"] == 2
+    assert result["summary"]["validated_events"] == 1
+    assert result["summary"]["invalid_event_count"] == 1
+    assert result["summary"]["total_events"] == 1
+    assert result["skipped_events"][0]["event_id"] == "EVT-INVALID"
+
+
+def test_correlator_rejects_when_every_event_is_invalid(tmp_path):
+    import pytest
+
+    with pytest.raises(ValueError, match="No schema-valid canonical events"):
+        MultimodalCorrelator().run_correlation([
+            {"event_id": "EVT-INVALID", "timestamp": "2026-01-15T10:00:00Z", "action": "login"}
+        ], output_dir=tmp_path)

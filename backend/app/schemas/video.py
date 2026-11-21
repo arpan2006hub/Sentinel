@@ -10,11 +10,13 @@ class VideoAnalysisRequest(BaseModel):
     """Request payload for analyzing a video for criminal activity."""
     video_path: str = Field(..., description="Absolute or relative path to the video file.")
     window_seconds: float = Field(2.0, ge=0.5, le=30.0, description="Duration in seconds for each temporal clip.")
-    stride_seconds: float = Field(1.0, ge=0.2, le=30.0, description="Step in seconds between successive clips.")
+    stride_seconds: float = Field(2.0, ge=0.2, le=30.0, description="Step in seconds between successive clips.")
     threshold: float = Field(0.5, ge=0.0, le=1.0, description="Confidence threshold for crime classification.")
     case_id: str = Field("CASE-DEFAULT", description="Associated investigation case ID.")
     location_id: Optional[str] = Field(None, description="Camera zone or location identifier.")
     evidence_id: Optional[str] = Field(None, description="Source evidence ID.")
+    start_time: Optional[str] = Field(None, description="ISO 8601 wall-clock time of the first frame (aligns events with other evidence).")
+    max_seconds: Optional[float] = Field(None, gt=0, description="Analyse at most N seconds (bounds CPU time).")
     auto_download: bool = Field(False, description="Automatically download model weights from Hugging Face if not found.")
 
 
@@ -47,12 +49,16 @@ class VideoAnalysisResponse(BaseModel):
     """Response payload returned by the video crime detection engine."""
     video_file: str
     duration_seconds: float
+    analyzed_seconds: Optional[float] = None
+    base_timestamp: Optional[str] = None
+    timestamp_is_estimated: bool = False
+    is_fallback: bool = Field(False, description="True = TimeSformer weights not loaded; motion heuristic used")
     analyzed_segments_count: int
     crime_detected_count: int
     status: str
     max_crime_probability: float
     model_name: str
-    model_f1_score: float
+    model_f1_score: Optional[float] = None
     segments: List[CrimeSegment]
     canonical_events: List[CanonicalEvent]
 
@@ -66,6 +72,8 @@ class ModelInfoResponse(BaseModel):
     accuracy: float = 0.8425
     is_loaded: bool
     is_fallback: bool
+    weights_available: bool = Field(False, description="Weights file present locally (loaded lazily on first analysis)")
+    metrics_source: str = "third-party Hugging Face model card (not verified by the Sentinel team)"
     device: str
     model_path: Optional[str] = None
     supported_classes: List[str] = [
