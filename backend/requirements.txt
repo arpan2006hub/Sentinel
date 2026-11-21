@@ -1,0 +1,35 @@
+# =============================================================================
+# Sentinel Backend — Python Dependencies
+# =============================================================================
+# Supported Python: 3.11 – 3.14.
+# Lower bounds (rather than exact pins) are used so that wheels are available
+# on every supported Python version (the old pydantic==2.9.2 pin had no
+# Python 3.14 wheel and required a Rust toolchain to build).
+#
+# The backend imports the AI layer (ai/), so the ML requirements are needed
+# too. Install everything from the project root with:
+#     pip install -r requirements.txt
+# =============================================================================
+
+# Core web framework
+fastapi>=0.115,<1.0
+uvicorn[standard]>=0.32
+
+# Data validation & settings
+pydantic>=2.11,<3.0
+jsonschema>=4.20,<5.0
+
+# Multipart form/file uploads
+python-multipart>=0.0.12
+
+# Utilities
+python-dotenv>=1.0
+httpx>=0.27
+huggingface-hub>=0.20
+pillow>=10.0
+pypdf>=5.0,<7.0
+
+# -----------------------------------------------------------------------------
+# Planned (not used yet — SQLite is the current local-first store)
+# sqlalchemy, alembic, psycopg2-binary, redis, celery, python-jose, passlib
+# -----------------------------------------------------------------------------

@@ -1,0 +1,19 @@
+Sentinel frontend route and section code-splitting patch
+
+Files included:
+- src/App.tsx
+- src/pages/CasePage.tsx
+
+Changes:
+1. DashboardPage and CasePage are loaded through React.lazy at route boundaries.
+2. The six case sections (Overview, Evidence, Timeline, Anomalies, Graph, Entity Leads) are loaded independently with React.lazy.
+3. Lightweight Suspense skeletons are shown while route/section chunks are fetched.
+4. GraphSection and its Cytoscape dependency are not part of the initial Cases dashboard load; they are fetched when the Graph tab is opened.
+5. No dependencies or backend APIs are changed.
+
+Apply from the Sentinel project root by extracting this archive into the root, then run in frontend:
+  npm run type-check
+  npm run lint
+  npm run build
+
+The patch was reviewed against the current frontend source snapshot, but a full npm build could not be completed in the patch environment because npm dependency installation timed out. Verify the build locally before treating the optimization as complete.
