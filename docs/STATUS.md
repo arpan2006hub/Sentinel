@@ -1,6 +1,6 @@
 # Sentinel — Status & Remaining Work
 
-_Last updated 2026-11-15 (local functional fixes + PDF OCR integration). The scope is the agreed component set: Video AI (TimeSformer), Cyber AI, Document AI baseline, Cross-Modal Correlation, Case & Evidence API, End-to-End demo._
+_Last updated 2026-11-22. The scope is the agreed component set: React investigator dashboard, Video AI (TimeSformer), Cyber AI, Document AI baseline, Cross-Modal Correlation, Case & Evidence API, and end-to-end demo._
 
 
 
@@ -54,10 +54,10 @@ _Last updated 2026-11-15 (local functional fixes + PDF OCR integration). The sco
   - Case and evidence deletion return HTTP 409 while an analysis run is queued or running. The guard is serialized with analysis-run creation using SQLite `BEGIN IMMEDIATE`.
   - TimeSformer checkpoint loading now refuses unrestricted pickle deserialization if `weights_only=True` fails; an incompatible or unsafe checkpoint falls back to the clearly labelled motion heuristic instead of being unpickled.
 
-## Remaining: frontend (owner: frontend team member)
+## Implemented: frontend
 
-- [ ] Build the investigator dashboard in `frontend/`. Everything is in [`architecture/frontend-integration.md`](architecture/frontend-integration.md): screens, calls, payloads, vocabulary and UI caveats.
-- [ ] `frontend/Dockerfile`, then enable the `frontend` compose profile.
+- [x] Investigator dashboard in `frontend/`, including case management, evidence workflows, analysis status, timeline, anomalies, evidence graph and ranked entity leads.
+- [ ] `frontend/Dockerfile`, then enable the `frontend` compose profile. Local frontend development is supported with Vite.
 
 ## Remaining: heavy jobs to delegate (not run on the CPU-only dev laptop)
 

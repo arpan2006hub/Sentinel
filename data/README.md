@@ -1,6 +1,6 @@
 # Data — Sentinel
 
-> **Status**: No datasets are stored in this repository.
+> **Status**: No private or real datasets are stored in this repository. Synthetic demo data is generated locally and is ignored by Git.
 
 ---
 
@@ -12,6 +12,7 @@ data/
 │   └── event.schema.json
 ├── sample/           # Tiny synthetic examples only
 │   └── README.md
+├── generated/        # Generated demo scenario (ignored by Git)
 └── README.md         # This file
 ```
 
@@ -76,7 +77,7 @@ STORAGE_PATH=/path/to/evidence-store
 
 This path must be **outside the Git repository**.
 
-The backend records only metadata and SHA-256 hashes in PostgreSQL. The actual files live in the evidence store.
+The backend records metadata and SHA-256 hashes in SQLite plus the actual files in the evidence store. PostgreSQL remains the target for a future production migration.
 
 See `docs/decisions/ADR-003-storage.md` for the full storage architecture.
 

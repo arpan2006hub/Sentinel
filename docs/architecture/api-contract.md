@@ -55,9 +55,9 @@ Detailed health probe — used by Docker Compose and monitoring.
 
 ---
 
-## Planned Endpoints
+## Design Reference
 
-The following endpoints are **planned** and not yet implemented.
+The sections below preserve the original endpoint design. Use [`openapi.json`](openapi.json) and the live Swagger UI for exact request and response shapes.
 
 ---
 

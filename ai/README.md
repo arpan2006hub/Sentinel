@@ -1,160 +1,67 @@
 # AI / ML — Sentinel
 
-> **Status**: Foundation only. No AI models are implemented yet.
+The `ai/` package contains the implemented processing and correlation layer used by the FastAPI backend.
 
----
+## Processing
 
-## Planned Architecture
+`ai/processing/` routes evidence to a modality processor:
 
-The AI layer is organised into four modality-specific pipelines and a cross-modal correlation layer. All pipelines output **canonical events** (see `docs/architecture/event-schema.md`) that feed the correlation engine.
+| Source | Implementation |
+|---|---|
+| Cyber CSV/log data | Isolation Forest anomaly scoring, with a saved-model bundle or synthetic-model fallback |
+| Badge CSV | Granted/denied access events and location facts |
+| Video feature CSV | Isolation Forest video-motion anomaly scoring |
+| CCTV MP4 | TimeSformer crime detection or a clearly labelled motion fallback |
+| Text and JSONL | Entity, timestamp and zone extraction with a TF-IDF/logistic-regression baseline or keyword heuristic |
+| PDF | Text extraction with pypdf; optional Tesseract OCR through pypdfium2 |
 
-```
-Cyber AI      ──┐
-Video AI       ├──→  Canonical Events  ──→  Correlation Engine
-Document AI    │                            Entity Resolution
-Physical AI   ─┘                            Timeline Construction
-                                           Evidence Graph
-```
-
----
+All processors emit canonical runtime events defined by `data/schemas/event.schema.json`. Invalid events and duplicate event IDs are reported and excluded before correlation.
 
 ## Cyber AI
 
-**Directory**: `ai/cyber/`
+`ai/cyber/` contains:
 
-### Responsibilities
+- CERT preprocessing and feature normalisation
+- Synthetic label generation
+- Isolation Forest training
+- Supervised Random Forest training and model bundles
 
-- Log preprocessing and normalisation
-- Feature extraction from authentication, file-access, USB, network, DNS, HTTP, process logs
-- Anomaly detection on behavioural sequences
-- User/entity behavioural baselines
-- Output: canonical events with `source_type` in `endpoint_log`, `auth_log`, `file_access_log`, `usb_log`, `network_log`, `dns_log`, `email_log`
-
-### Planned Modules
-
-| Subdirectory | Purpose |
-|---|---|
-| `preprocessing/` | Parse raw logs (CSV, JSON, EVTX, Sysmon); normalise timestamps; map fields |
-| `features/` | Extract behavioural features: session patterns, access frequencies, command sequences |
-| `models/` | Train and serve anomaly detection models (isolation forests, LSTM autoencoders, transformers) |
-| `inference/` | Batch and streaming inference pipelines; event emission |
-
----
+The live demo uses the lightweight Isolation Forest path or a configured saved model. Retraining the CERT r4.2 Random Forest is a heavy offline job; see `CYBER_MODEL_REPORT.md` and `docs/STATUS.md`.
 
 ## Video AI
 
-**Directory**: `ai/video/`
+`ai/video/` contains TimeSformer inference, a motion-feature baseline, UCF-Crime training utilities and the standalone CLI.
 
-### Responsibilities
+- Default model: `Nikeytas/timesformer-best-crime-detector`
+- CPU inference is supported and lazy-loaded
+- `--start-time` / `recorded_at` aligns analysis with other evidence
+- `--max-seconds` and `VIDEO_MAX_SECONDS` bound processing
+- Missing weights or unsafe/incompatible checkpoints produce a labelled fallback rather than silent success
+- The 88.68% F1 value is a third-party model-card claim, not an independent Sentinel evaluation
 
-- Frame extraction and temporal preprocessing (FFmpeg / OpenCV)
-- Activity recognition and video crime detection via **TimeSformer** ([`Nikeytas/timesformer-best-crime-detector`](https://huggingface.co/Nikeytas/timesformer-best-crime-detector), 88.68% F1 score on UCF-Crime)
-- Temporal anomaly detection in video streams (unusual movement, violence, theft, restricted zone entry)
-- Output: canonical events with `source_type: cctv_video` and `action: crime_detected`
-
-### Modules & Models
-
-| File / Subdirectory | Purpose |
-|---|---|
-| `timesformer_crime_detector.py` | Time-Space Transformer inference engine for crime & anomaly detection |
-| `detect_crime.py` | CLI scanner for video files emitting Canonical Events |
-| `preprocessing/` | Video decoding, frame sampling, resolution normalisation |
-| `detection/` | Object/person detection, tracking, bounding-box extraction |
-| `anomaly/` | Temporal anomaly detection on detection outputs; event emission |
-
----
+See `ai/video/README.md` for CLI usage.
 
 ## Document AI
 
-**Directory**: `ai/documents/`
+`ai/documents/train.py` trains or rebuilds the document baseline. Text extraction supports `.txt`, `.json`, `.jsonl`, text PDFs and optional OCR for scanned PDF pages.
 
-### Responsibilities
-
-- OCR for scanned PDF pages using the optional pypdfium2 + Tesseract adapter (install `requirements-ocr.txt` and the Tesseract executable separately)
-- Entity extraction (names, dates, locations, IDs)
-- Event/timeline extraction from narrative text
-- Contradiction detection between document claims and other evidence
-- Output: canonical events with `source_type` in `pdf_document`, `text_document`
-
-### Planned Modules
-
-| Subdirectory | Purpose |
-|---|---|
-| `ocr/` | Optional Tesseract OCR for scanned PDF pages; image files and alternative OCR engines remain future work |
-| `extraction/` | NER, relation extraction, date/time/location parsing, event claim extraction |
-| `contradiction/` | Cross-reference document claims against canonical events; surface inconsistencies |
-
----
+OCR requires `requirements-ocr.txt` and an external Tesseract executable. It is disabled or skipped without a usable runtime.
 
 ## Correlation
 
-**Directory**: `ai/correlation/`
+`ai/correlation/` contains the implemented cross-modal pipeline:
 
-### Responsibilities
+- entity resolution
+- timestamped timeline construction
+- temporal clustering
+- evidence graph construction
+- contradiction detection
+- explainable entity/lead ranking
 
-- **Entity resolution**: Map ambiguous actor references (usernames, badge IDs, face clusters, names in documents) to canonical entities
-- **Temporal correlation**: Align events across modalities by time
-- **Cross-source matching**: Link related events from different sources (e.g., badge entry + video detection + logon)
-- **Evidence graph generation**: Build entity-relationship graph from correlated events
-- **Incident reconstruction**: Synthesise a coherent narrative from multimodal evidence
+The correlator currently implements impossible-travel, uncredentialed-presence, denied-access-then-activity and after-hours contradiction rules.
 
-### Planned Modules
+The backend runs one in-process analysis task per case and writes case-scoped JSON/JSONL results under `artifacts/cases/<case_id>/correlation/`. Redis/Celery workers and a distributed queue are not used in the current build.
 
-| Subdirectory | Purpose |
-|---|---|
-| `entity_resolution/` | Blocking, matching, and clustering for entity deduplication |
-| `timeline/` | Global timeline construction; gap analysis; event ordering |
-| `evidence_graph/` | Graph construction; edge inference; graph algorithms for investigation |
+## Integration
 
----
-
-## Evaluation
-
-**Directory**: `ai/evaluation/`
-
-### Responsibilities
-
-- Metrics computation for anomaly detection (precision, recall, F1, PR-AUC)
-- Ablation study orchestration
-- False-positive analysis
-- Error analysis tooling
-- Reproducible experiment scripts
-
----
-
-## Integration with Backend
-
-The AI pipelines are invoked by the backend as **background jobs** (Celery workers):
-
-1. Backend receives analysis request via `POST /analysis/start`
-2. Backend creates an `analysis_runs` record and queues a Celery task
-3. Worker loads the relevant evidence files from the evidence store
-4. Worker executes the appropriate AI pipeline(s)
-5. Worker writes canonical events to PostgreSQL
-6. Worker updates `analysis_runs` with summary and status
-
-AI code should be **importable as modules** from the worker. The backend does not embed AI logic directly.
-
----
-
-## MLOps
-
-Experiment tracking uses **MLflow** (see `mlops/`):
-
-- Each training run logs parameters, metrics, and model artefacts
-- Model registry tracks versions for deployment to workers
-- Ablation studies are organised as MLflow experiments
-
----
-
-## Development Notes
-
-- AI code runs in the same Python environment as the backend (or a compatible one)
-- GPU access is optional for development; CPU inference should work for testing
-- Models should be serialisable (ONNX, TorchScript, or pickled) for deployment
-- All AI outputs must conform to the canonical event schema
-- Confidence scores must be calibrated where possible
-
----
-
-*Implementation begins with the cyber log preprocessing pipeline and canonical event emission.*
+Analysis is orchestrated by `backend/app/services/analysis_service.py`. The backend routes uploaded evidence through `ai/processing/router.py`, validates processor output and then invokes `ai/correlation/correlator.py`.

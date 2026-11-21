@@ -1,6 +1,6 @@
 # Canonical Event Schema — Sentinel
 
-> **Status**: Planned schema. Not yet implemented in code.
+> **Status**: Implemented runtime contract, defined by `data/schemas/event.schema.json` and consumed by evidence processors and correlation.
 
 ---
 
@@ -190,7 +190,7 @@ The schema should include a version marker in future implementations so that cha
 | **Correlation Engine** | Reads all events; resolves actors/objects; links events across sources |
 | **Timeline** | Sorts events by `timestamp_start`; displays actor/action/object |
 | **Evidence Graph** | Extracts nodes (actors, objects, locations) and edges (actions) |
-| **Backend API** | Stores events in PostgreSQL; exposes them via REST |
+| **Backend API** | Uses the schema for processor validation and exposes timeline/correlation results over REST |
 | **Frontend** | Displays and filters events in the investigator dashboard |
 
 ---
@@ -205,4 +205,4 @@ data/schemas/event.schema.json
 
 ---
 
-*This schema is planned and subject to revision as implementation begins.*
+*This schema is the implemented runtime contract and may evolve with explicit versioned changes.*

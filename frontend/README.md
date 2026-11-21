@@ -11,7 +11,6 @@ A minimal investigator workspace for the Sentinel FastAPI backend. The UI only e
 
 ```powershell
 cd frontend
-.\cleanup-legacy-ui.ps1
 if (!(Test-Path .env)) { Copy-Item .env.example .env }
 npm install
 npm run type-check
